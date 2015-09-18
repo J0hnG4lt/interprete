@@ -14,9 +14,9 @@ module Main (main) where
 
 tokens :-
 
-    $white+                              ;
-    \$\$[.]*                             ;
-    \$\-( ([^\-][\n\t]?)*(([\-]([^\$]+[\n\t]?)[\$])*) )*\-\$    ;
+    $white+                              ;  --Espacio en blanco
+    [\$]{1}[\-]+(([^\-]*|[\n \t])\-[^\$]*)*[\-]+[\$]{1}    ;  --Comentarios de Bloque
+    \$\$.*                             ;  --Comentarios de una linea
     create                               { \p s -> TkCreate p }
     execute                         { \p s -> TkExecute p }
     end                         { \p s -> TkEnd p }
@@ -70,6 +70,7 @@ tokens :-
     [1-9][0-9]*                 { \p s -> TkNum p (read s) }
     [a-zA-Z0-9']                { \p s -> TkCaracter p (head s) }
     [a-zA-Z][a-zA-Z0-9\_]*      { \p s -> TkIdent p s }
+    .                           { \p s -> TkError p (head s) }  --Caracter Erroneo
 
 
         -- CODIGO
@@ -130,7 +131,8 @@ data Token =
         TkPunto           AlexPosn  |
         TkDosPuntos       AlexPosn  |
         TkParAbre         AlexPosn  |
-        TkParCierra       AlexPosn
+        TkParCierra       AlexPosn  |
+        TkError    AlexPosn   Char
         deriving (Eq)
 
 instance Show Token where
@@ -189,9 +191,14 @@ imprimir_token (TkDosPuntos (AlexPn _ linea columna)) = "TkDosPuntos "++show(lin
 imprimir_token (TkParCierra (AlexPn _ linea columna)) = "TkParCierra "++show(linea)++" "++show(columna)
 imprimir_token (TkParAbre (AlexPn _ linea columna)) = "TkParAbre "++show(linea)++" "++show(columna)
 
+imprimir_token (TkError (AlexPn _ linea columna) elem) = "Error: Caracter inesperado "
+                ++show(elem)++" en la fila "++show(linea)++", columna "++show(columna)
+
 imprimir_token (TkCaracter (AlexPn _ linea columna) elem) = "TkCaracter("++show(elem)++") "++show(linea)++" "++show(columna)
 imprimir_token (TkNum (AlexPn _ linea columna) elem) = "TkNum("++show(elem)++") "++show(linea)++" "++show(columna)
 imprimir_token (TkIdent (AlexPn _ linea columna) elem) = "TkIdent("++show(elem)++") "++show(linea)++" "++show(columna)
+
+
 
 
 main :: IO ()
