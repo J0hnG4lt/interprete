@@ -15,7 +15,7 @@ module Main (main) where
 tokens :-
 
     $white+                              ;  --Espacio en blanco
-    [\$]{1}[\-]+(([^\-]*|[\n \t])\-[^\$]*)*[\-]+[\$]{1}    ;  --Comentarios de Bloque
+    \$\-([^\-]*|[\n\t]|\-+([^\-\$]|[\n\t]))*\-+\$    ;  --Comentarios de Bloque
     \$\$.*                             ;  --Comentarios de una linea
     create                               { \p s -> TkCreate p }
     execute                         { \p s -> TkExecute p }
