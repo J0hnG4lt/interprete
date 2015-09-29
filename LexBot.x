@@ -1,5 +1,5 @@
 {
-module Main (main) where
+module LexBot (alexScanTokens, Token(TkError)) where
 }
 
         --  Autor: Georvic Tur
@@ -199,11 +199,12 @@ imprimir_token (TkNum (AlexPn _ linea columna) elem) = "TkNum("++show(elem)++") 
 imprimir_token (TkIdent (AlexPn _ linea columna) elem) = "TkIdent("++show(elem)++") "++show(linea)++" "++show(columna)
 
 
-
+{--
 
 main :: IO ()
 main = do
     source <- getContents
     let lista_tokens = alexScanTokens source
     mapM_ (putStrLn . show) lista_tokens
+--}
 }
