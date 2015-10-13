@@ -3,11 +3,10 @@ module LexBot (alexScanTokens, Token(TkError)) where
 }
 
         --  Autor: Georvic Tur
+        -- Carnet: 12-11402
+        -- alexanderstower@gmail.com
 
 %wrapper "posn"
-
-        -- MACROS
-
 
 
         -- TOKENS
@@ -70,7 +69,8 @@ tokens :-
     [1-9][0-9]*                 { \p s -> TkNum p (read s) }
     [a-zA-Z0-9']                { \p s -> TkCaracter p (head s) }
     [a-zA-Z][a-zA-Z0-9\_]*      { \p s -> TkIdent p s }
-    .                           { \p s -> TkError p (head s) }  --Caracter Erroneo
+    .                           { \p s -> TkError p (head s) }  --Cualquier otro
+                                                                -- caracter es erroneo
 
 
         -- CODIGO
@@ -132,11 +132,20 @@ data Token =
         TkDosPuntos       AlexPosn  |
         TkParAbre         AlexPosn  |
         TkParCierra       AlexPosn  |
-        TkError    AlexPosn   Char
+        TkError    AlexPosn   Char  -- Se definio el token de error
         deriving (Eq)
 
 instance Show Token where
     show cons = imprimir_token cons
+
+{--
+    Para imprimir los tokens como se especifica en el enunciado, fue necesario
+    crear una funcion que hace reconocimiento de patrones con los constructores
+    del tipo token. Esta solucion no fue elegante. Sin embargo, asi se puede imprimir
+    el token de error. Si no se hubiese creado un token de error, se habria tenido
+    que modificar la funcion AlexScanTokens para que no aborte el programa ante
+    un token inesperado
+--}
 
 imprimir_token :: Token -> String
 
@@ -199,12 +208,5 @@ imprimir_token (TkNum (AlexPn _ linea columna) elem) = "TkNum("++show(elem)++") 
 imprimir_token (TkIdent (AlexPn _ linea columna) elem) = "TkIdent("++show(elem)++") "++show(linea)++" "++show(columna)
 
 
-{--
 
-main :: IO ()
-main = do
-    source <- getContents
-    let lista_tokens = alexScanTokens source
-    mapM_ (putStrLn . show) lista_tokens
---}
 }

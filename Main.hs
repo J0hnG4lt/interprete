@@ -1,9 +1,12 @@
 module Main (main) where
 
-        --  Autor: Georvic Tur
+        -- Autor: Georvic Tur
+        -- Carnet: 12-11402
+        -- alexanderstower@gmail.com
 
 import LexBot (Token(TkError), alexScanTokens)
 import System.Environment
+
 es_error :: Token -> Bool
 es_error tok =
     case tok of
@@ -14,6 +17,11 @@ hay_error :: [Token] -> Bool
 hay_error (x:s) = (es_error x) || (hay_error s)
 hay_error [] = False
 
+{--
+    Si no hay ningun error, se aplica mapM_ a toda la lista de tokens. 
+    De lo contrario, se filtra la lista de tokens y sólo se imprimen
+    los tokens de error.
+--}
 
 main :: IO ()
 main = do
