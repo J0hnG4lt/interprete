@@ -1,5 +1,5 @@
 {
-module LexBot (alexScanTokens, Token(TkError)) where
+module LexBot {-(alexScanTokens, Token(TkError))-} where
 }
 
         --  Autor: Georvic Tur
