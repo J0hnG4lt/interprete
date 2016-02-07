@@ -1,6 +1,7 @@
 {
 module Main where
-import LexBot (alexScanTokens)
+import LexBot --(alexScanTokens, AlexPosn)
+import System.Environment
 }
 
 -- Georvic Tur
@@ -11,171 +12,200 @@ import LexBot (alexScanTokens)
 %error { parseError } -- Implementar Funcion parseError
 
 %left "/\\" "\\/"
-%left '=' "<=" ">=" "/=" '<' '>'
+%nonassoc '=' "<=" ">=" "/=" '<' '>'
 %left '*' '/'
 %left '%'
 %left NEG
     -- Definicion de Token
 
 %token
-    "create"      {TkCreate}
-    "execute"     {TkExecute}
-    "end"         {TkEnd}
-    "bot"         {TkBot}
-    "int"         {TkInt}
-    "bool"        {TkBool}
-    "char"        {TkChar}
-    "store"       {TkStore}
-    "receive"     {TkReceive}
-    "on"          {TkOn}
-    "activate"    {TkActivate}
-    "advance"     {TkAdvance}
-    "deactivate"  {TkDeactivate}
-    "if"          {TkIf}
-    "else"        {TkElse}
-    "while"       {TkWhile}
-    "collect"     {TkCollect}
-    "as"          {TkAs}
-    "drop"        {TkDrop}
-    "up"          {TkUp}
-    "down"        {TkDown}
-    "left"        {TkLeft}
-    "right"       {TkRight}
-    "read"        {TkRead}
-    "send"        {TkSend}
-    "activation"  {TkActivation}
-    "deactivation"    {TkDeactivation}
-    "default"         {TkDefault}
-    "me"              {TkMe}
-    '+'             {TkSuma}
-    '-'             {TkResta}
-    '*'             {TkMult}
-    '/'             {TkDiv}
-    '%'             {TkMod}
-    "/\\"            {TkConjuncion}
-    "\/"            {TkDisyuncion}
-    '~'             {TkNegacion}
-    '<'             {TkMenor}
-    "<="            {TkMenorIgual}
-    '>'             {TkMayor}
-    ">="            {TkMayorIgual}
-    '='             {TkIgual}
-    "/="            {TkDesigualdad}
-    Variable             {TkIdent $$}
-    Constante           {TkNum $$}
-    "true"            {TkTrue}
-    "false"           {TkFalse}
-    Letra           {TkCaracter $$}
-    ','             {TkComa}
-    '.'             {TkPunto}
-    ':'             {TkDosPuntos}
-    '('             {TkParAbre}
-    ')'             {TkParCierra}
+    "create"      {TkCreate (AlexPn _ _ _)}        --
+    "execute"     {TkExecute (AlexPn _ _ _)}       --
+    "end"         {TkEnd (AlexPn _ _ _)}           --
+    "bot"         {TkBot (AlexPn _ _ _)}           --
+    "int"         {TkInt (AlexPn _ _ _)}           --
+    "bool"        {TkBool (AlexPn _ _ _)}          --
+    "char"        {TkChar (AlexPn _ _ _)}          --
+    "store"       {TkStore (AlexPn _ _ _)}         --
+    "receive"     {TkReceive (AlexPn _ _ _)}
+    "on"          {TkOn (AlexPn _ _ _)}            --
+    "activate"    {TkActivate (AlexPn _ _ _)}      --
+    "advance"     {TkAdvance (AlexPn _ _ _)}       --
+    "deactivate"  {TkDeactivate (AlexPn _ _ _)}    --
+    "if"          {TkIf (AlexPn _ _ _)}            --
+    "else"        {TkElse (AlexPn _ _ _)}          --
+    "while"       {TkWhile (AlexPn _ _ _)}         --
+    "collect"     {TkCollect (AlexPn _ _ _)}       --
+    "as"          {TkAs (AlexPn _ _ _)}            --
+    "drop"        {TkDrop (AlexPn _ _ _)}          --
+    "up"          {TkUp (AlexPn _ _ _)}            --
+    "down"        {TkDown (AlexPn _ _ _)}          --
+    "left"        {TkLeft (AlexPn _ _ _)}          --
+    "right"       {TkRight (AlexPn _ _ _)}         --
+    "read"        {TkRead (AlexPn _ _ _)}          --
+    "send"        {TkSend (AlexPn _ _ _)}          --
+    "activation"  {TkActivation (AlexPn _ _ _)}            --
+    "deactivation"    {TkDeactivation (AlexPn _ _ _)}      --
+    "default"         {TkDefault (AlexPn _ _ _)}           --
+    "me"              {TkMe (AlexPn _ _ _)}
+    '+'             {TkSuma (AlexPn _ _ _)}                --
+    '-'             {TkResta (AlexPn _ _ _)}               --
+    '*'             {TkMult (AlexPn _ _ _)}                --
+    '/'             {TkDiv (AlexPn _ _ _)}                 --
+    '%'             {TkMod (AlexPn _ _ _)}                 --
+    "/\\"            {TkConjuncion (AlexPn _ _ _)}         --
+    "\/"            {TkDisyuncion (AlexPn _ _ _)}          --
+    '~'             {TkNegacion (AlexPn _ _ _)}            --
+    '<'             {TkMenor (AlexPn _ _ _)}               --
+    "<="            {TkMenorIgual (AlexPn _ _ _)}          --
+    '>'             {TkMayor (AlexPn _ _ _)}               --
+    ">="            {TkMayorIgual (AlexPn _ _ _)}          --
+    '='             {TkIgual (AlexPn _ _ _)}               --
+    "/="            {TkDesigualdad (AlexPn _ _ _)}         --
+    Variable             {TkIdent (AlexPn _ _ _) $$}       --
+    Constante           {TkNum (AlexPn _ _ _) $$}          --
+    "true"            {TkTrue (AlexPn _ _ _)}              --
+    "false"           {TkFalse (AlexPn _ _ _)}             --
+    Letra           {TkCaracter (AlexPn _ _ _) $$}
+    ','             {TkComa (AlexPn _ _ _)}                --
+    '.'             {TkPunto (AlexPn _ _ _)}               --
+    ':'             {TkDosPuntos (AlexPn _ _ _)}           --
+    '('             {TkParAbre (AlexPn _ _ _)}             --
+    ')'             {TkParCierra (AlexPn _ _ _)}           --
 
 
 %%
 
-Secuencia : "create" Lista_de_Declaraciones "execute" Instrucciones "end"      {Sec $2 $4}
-    |   "execute" Instruccion_de_Controlador "end"                                          {Sec [] $2}
+Secuencia :: {AST}
+Secuencia : "create" Lista_de_Declaraciones "execute" Instrucciones "end"      {Sec_Dec $2 $4}
+    |   "execute" Instrucciones "end"                                          {Sec $2}
 
-Definicion_de_Robot : Tipo "bot" Lista_de_Identificadores Lista_de_Comportamientos "end"    {DefRob $1 $3 $4}
-    |   Tipo "bot" Lista_de_Identificadores "end"                                           {DefRob $1 $3 []}
+Definicion_de_Robot :: {DefRob}
+Definicion_de_Robot : Tipo "bot" Lista_de_Identificadores Lista_de_Comportamientos "end"    {DefRob_Full $1 $3 $4}
+    |   Tipo "bot" Lista_de_Identificadores "end"                                           {DefRob_Empty $1 $3}
 
-Lista_de_Declaraciones : Lista_de_Declaraciones Definicion_de_Robot     {ListDecl $1 $2}
+Lista_de_Declaraciones :: {ListDecl}
+Lista_de_Declaraciones : Lista_de_Declaraciones Definicion_de_Robot     {ListDecl_L ( $2 : (getDecl_L $1))}
+    |   Definicion_de_Robot                                             {ListDecl_L [$1] }
 
-Tipo : Tipo Int      {Tipo $1}
-    | Tipo Bool      {Tipo $1}
-    | Tipo Char      {Tipo $1}
+Tipo :: {Tipo}
+Tipo : "int"      {TInt}
+    | "bool"      {TBool}
+    | "char"      {TChar}
 
-Int : {Int}
-Bool : {Bool}
-Char : {Char}
+--Int : {Int}
+--Bool : {Bool}
+--Char : {Char}
 
-Lista_de_Comportamientos : Lista_de_Comportamientos Comportamiento      {ListComp $1 $2}
-    |   Comportamiento                                                  {ListComp [] $1}
+Lista_de_Comportamientos :: {ListComp}
+Lista_de_Comportamientos : Lista_de_Comportamientos Comportamiento      {ListComp_L ($2 : (getComp_L $1))}
+    |   Comportamiento                                                  {ListComp_L [$1] }
 
+Comportamiento :: {Comp}
 Comportamiento : "on" Condicion ':' Instruccion_de_Robot "end"          {Comp $2 $4}
 
-Lista_de_Identificadores : Lista_de_Identificadores ',' Variable        {ListIdent $1 $3}
+Lista_de_Identificadores :: {ListIdent}
+Lista_de_Identificadores : Lista_de_Identificadores ',' Variable        {ListIdent_V ((Var_C $3) : (getIdent_V $1)) }
+    |   Variable                                                        {ListIdent_V [Var_C $1] }
 
 
+Condicion :: {Cond}
+Condicion : "activation"      {Activation}
+    |   "deactivation"        {Deactivation}
+    |   "default"             {Default}
 
-Condicion : Activation      {Cond Activation}
-    |   Deactivation        {Cond Deactivation}
-    |   Default             {Cond Default}
-    |   Expresion           {Cond $1}  -- Esto debe estar mal
+--Activation : {Activation}
+--Deactivation : {Deactivation}
+--Default : {Default}
 
-Activation : {Activation}
-Deactivation : {Deactivation}
-Default : {Default}
+Instruccion_de_Controlador :: {InstContr}
+Instruccion_de_Controlador : "activate" Lista_de_Identificadores        {ActivateInst $2}
+    |   "advance" Lista_de_Identificadores                              {AdvanceInst $2}
+    |   "deactivate" Lista_de_Identificadores                           {DeactivateInst $2}
 
+Instrucciones :: {Instrcs}
+Instrucciones : Secuenciacion                   {Instrcs_S $1}
+    |       Iteracion_Indeterminada             {Instrcs_W $1}
+    |       Condicional                         {Instrcs_I $1}
 
-Instruccion_de_Controlador : "activate" Lista_de_Identificadores        {InstContr ActivateInst $2}
-    |   "advance" Lista_de_Identificadores                              {InstContr AdvanceInst $2}
-    |   "deactivate" Lista_de_Identificadores                           {InstContr DeactivateInst $2}
+Secuenciacion :: {Secuen}
+Secuenciacion : Secuenciacion Instruccion_de_Controlador        {Secuen ($2 : (getInstContr $1))}
+    |   Instruccion_de_Controlador                              {Secuen [$1]}
 
+Condicional :: {IfCond}
+Condicional : "if" Expresion_Bool Secuenciacion "else" Secuenciacion "end"        {IfCond_Else $2 $3 $5}
+    |   "if" Expresion_Bool Secuenciacion "end"                                   {IfCond_Pass $2 $3}
 
-Instrucciones : Secuenciacion                   {Instrcs $1}
-    |       Iteracion_Indeterminada             {Instrcs $1}
-    |       Condicional                         {Instrcs $1}
+Iteracion_Indeterminada :: {While}
+Iteracion_Indeterminada : "while" Expresion_Bool ':' Secuenciacion "end"          {While $2 $4}
 
-
-Secuenciacion : Secuenciacion Instruccion_de_Controlador        {Secuen $1 $2}
-    |   Instruccion_de_Controlador                              {Secuen [] $1}
-
-Condicional : "if" Bool Secuenciacion "else" Secuenciacion "end"        {IfCond $2 $3 $5}
-    |   "if" Bool Secuenciacion "end"                                   {IfCond $2 $3 []}
-
-Iteracion_Indeterminada : "while" Bool ':' Secuenciacion "end"          {While $2 $4}
-
-
+{-
 Instruccion_de_Robot : Almacenado '.'       {InstRob $1}
     |   Coleccion '.'                       {InstRob $1}
     |   Soltado '.'                         {InstRob $1}
     |   Movimiento '.'                      {InstRob $1}
     |   Entrada_y_Salida '.'                {InstRob $1}
 --    |   Secuenciacion_Inst '.'              {InstRob $1}
+-}
 
-
+{-
 Coleccion : "collect" "as" Identificador      {Colec $3}
-    | "collect"                               {Colec []}
+    | "collect"                               {Colec_empty}
 
 Identificador : Variable                      {Var $1}
 
 Soltado : "drop" Expresion                      {Solt $2}
 
 Movimiento : Direccion Expresion                {Mov $1 $2}
-    | Direccion                                 {Mov $1 []}
-
-Direccion : Left        {Dir $1}
-    |   Right           {Dir $1}
-    |   Up              {Dir $1}
-    |   Down            {Dir $1}
-
-Left : {Left}
-Up : {Up}
-Right : {Right}
-Down : {Down}
-
-
-Entrada_y_Salida : "read" "as" Identificador        {ES Read $3}
-    |   "read"                                      {ES Read []}
-    |   "send"                                      {ES Send []}
+    | Direccion                                 {Mov_empty $1}
 
 Almacenado : "store" Expresion                  {Almac $2}
 
-Expresion : Expresion_Bool                          {Expr $1}
-    |   Expresion_Num                               {Expr $1}
+Entrada_y_Salida :: {InstRob}
+Entrada_y_Salida : "read" "as" Variable        {ES_Read $3}
+    |   "read"                                      {ES_Empty_Read}
+    |   "send"                                      {ES_Empty_Send}
 
+-}
+
+Instruccion_de_Robot :: {InstRob}
+Instruccion_de_Robot : "store" Expresion '.' {Almac $2}
+    |   "collect" "as" Variable '.'        {Colec (Var_C $3)}
+    |   "collect" '.'                           {Colec_empty}
+    |   "drop" Expresion '.'                    {Solt $2}
+    |   Direccion Expresion '.'                 {Mov $1 $2}
+    |   Direccion '.'                           {Mov_empty $1}
+    |   "read" "as" Variable '.'                {ES_Read (Var_C $3)}
+    |   "read"                                      {ES_Empty_Read}
+    |   "send"                                      {ES_Empty_Send}
+
+Direccion :: {Dir}
+Direccion : "left"        {DLeft}
+    |   "right"           {DRight}
+    |   "up"              {DUp}
+    |   "down"            {DDown}
+
+--Left : {Left}
+--Up : {Up}
+--Right : {Right}
+--Down : {Down}
+
+Expresion :: {Expr}
+Expresion : Expresion_Bool                          {Expr_Bool_ $1}
+    |   Expresion_Num                               {Expr_Num_ $1}
+
+Expresion_Num :: {Expr_Num}
 Expresion_Num : Expresion_Num '+' Expresion_Num     {Suma $1 $3}
     |   Expresion_Num '*' Expresion_Num             {Produ $1 $3}
     |   Expresion_Num '/' Expresion_Num             {Divi $1 $3}
     |   Expresion_Num '%' Expresion_Num             {Modu $1 $3}
     |   Expresion_Num '-' Expresion_Num             {Resta $1 $3}
     |   '-' Expresion_Num    %prec NEG              {Nega $2}
-    |   Variable                                    {Var $1}
-    |   Constante                                   {Int $1}
+    |   '(' Expresion_Num ')'                            {Parentesis_Num $2}
+    |   Variable                                    {Variabl_N (Var_C $1)}
+    |   Constante                                   {Numer $1}
 
+Expresion_Bool :: {Expr_Bool}
 Expresion_Bool : Expresion_Bool "/\\" Expresion_Bool    {And_ $1 $3}
     |   Expresion_Bool "\/" Expresion_Bool             {Or_ $1 $3}
     |   '~' Expresion_Bool                              {Not_ $2}
@@ -187,55 +217,84 @@ Expresion_Bool : Expresion_Bool "/\\" Expresion_Bool    {And_ $1 $3}
     |   Expresion_Num '>' Expresion_Num                 {Mayor $1 $3}
     |   Expresion_Num '=' Expresion_Num                 {EquNum $1 $3}
     |   Expresion_Num "/=" Expresion_Num                {NotEquNum $1 $3}
-    |   Variable                                        {Var $1}
-    |   Constante                                       {Bool $1}
+    |   '(' Expresion_Bool ')'                               {Parentesis_Bool $2}
+    |   Variable                                        {Variabl_B (Var_C $1)}
+    |   "true"                                          {Booleano True}
+    |   "false"                                         {Booleano False}
 
 
 
 {
 
-data AST =
-        Sec ListDecl Instrcs
+data AST = Sec Instrcs
+        | Sec_Dec ListDecl Instrcs
+        deriving (Eq, Show)
 
-data Instrcs = Instrcs Secuen
-        | Instrcs While
-        | Instrcs IfCond
+data Instrcs = Instrcs_S Secuen
+        | Instrcs_W While
+        | Instrcs_I IfCond
+        deriving (Eq, Show)
 
-data Dir = Left | Right | Up | Down
+data While = While Expr_Bool Secuen
+        deriving (Eq, Show)
 
-type Secuen = [InstContr]
+data IfCond = IfCond_Else Expr_Bool Secuen Secuen
+        |   IfCond_Pass Expr_Bool Secuen
+        deriving (Eq, Show)
 
-type ListDecl = [DefRob]
+data Dir = DLeft | DRight | DUp | DDown
+        deriving (Eq, Show)
 
-data DefRob = DefRob Tipo ListIdent ListComp
+data Secuen = Secuen { getInstContr :: [InstContr]}
+        deriving (Eq, Show)
 
-data Tipo = Int | Bool | Char
+data ListDecl = ListDecl_L { getDecl_L :: [DefRob]}
+        deriving (Eq, Show)
 
-type ListIdent = [Var]
+data DefRob = DefRob_Full Tipo ListIdent ListComp
+        |   DefRob_Empty Tipo ListIdent
+        deriving (Eq, Show)
 
-type ListComp = [Comp]
+data Tipo = TInt | TBool | TChar
+        deriving (Eq, Show)
+
+data ListIdent = ListIdent_V { getIdent_V :: [Var]}
+        deriving (Eq, Show)
+
+data ListComp = ListComp_L {getComp_L :: [Comp]}
+        deriving (Eq, Show)
 
 data Comp = Comp Cond InstRob
+        deriving (Eq, Show)
 
-data Cond = Cond Activation 
-        | Cond Deactivation 
-        | Cond Default 
-        | Cond Expresion
+data Cond = Activation 
+        | Deactivation 
+        | Default 
+        | Expresion
+        deriving (Eq, Show)
 
 data InstRob = Almac Expr
             |   Colec Var
             |   Solt Expr
             |   Mov Dir Expr
-            |   ES Var
+            |   ES_Read Var
+            |   ES_Empty_Read
+            |   ES_Empty_Send
+            |   Colec_empty
+            |   Mov_empty Dir
+        deriving (Eq, Show)
 --            |   Sec_Inst -- Falta
 
-data Var = Var {Ident::[Char], Val::[Char]}
+data Var = Var_C String
+        deriving (Eq, Show)
 
-data InstContr = ActivateInst [Var]
-        |   DeactivateInst [Var]
-        |   AdvanceInst [Var]
+data InstContr = ActivateInst ListIdent
+        |   DeactivateInst ListIdent
+        |   AdvanceInst ListIdent
+        deriving (Eq, Show)
 
-data Expr = Expr Expr_Bool | Expr Expr_Num
+data Expr = Expr_Bool_ Expr_Bool | Expr_Num_ Expr_Num
+        deriving (Eq, Show)
 
 data Expr_Bool = And_ Expr_Bool Expr_Bool
         |       Or_ Expr_Bool Expr_Bool
@@ -248,8 +307,10 @@ data Expr_Bool = And_ Expr_Bool Expr_Bool
         |       Mayor Expr_Num Expr_Num
         |       EquNum Expr_Num Expr_Num
         |       NotEquNum Expr_Num Expr_Num
-        |       Var
-        |       Bool
+        |       Variabl_B Var
+        |       Booleano Bool
+        |       Parentesis_Bool Expr_Bool
+        deriving (Eq, Show)
 
 data Expr_Num = Suma Expr_Num Expr_Num
         |       Resta Expr_Num Expr_Num
@@ -257,11 +318,11 @@ data Expr_Num = Suma Expr_Num Expr_Num
         |       Produ Expr_Num Expr_Num
         |       Modu Expr_Num Expr_Num
         |       Nega Expr_Num
-        |       Var
-        |       Int
-
-
-
+        |       Variabl_N Var
+        |       Numer Int
+        |       Parentesis_Num Expr_Num
+        deriving (Eq, Show)
+{-
 data Token =
         TkCreate          AlexPosn  |
         TkExecute         AlexPosn  |
@@ -317,14 +378,22 @@ data Token =
         TkParAbre         AlexPosn  |
         TkParCierra       AlexPosn  |
         TkError    AlexPosn   Char  -- Se definio el token de error
-        deriving (Eq)
-
+        deriving (Eq, Show)
+-}
     -- Funcion de Error
 parseError :: [Token] -> a
 parseError _ = error "Error de Parser"
 
-main = getContents >>= print . calc . alexScanTokens
+--main = getContents >>= print . calc . alexScanTokens
 
+
+main :: IO ()
+main = do
+    [nombre] <- getArgs
+    source <- readFile nombre
+    let lista = alexScanTokens source
+    let arbol_sintactico = calc lista
+    print arbol_sintactico
 }
 
 
