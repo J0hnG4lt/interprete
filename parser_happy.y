@@ -178,6 +178,7 @@ Instruccion_de_Robot : "store" Expresion '.' {Almac $2}
     |   "read" "as" Variable '.'                {ES_Read (Var_C $3)}
     |   "read"                                      {ES_Empty_Read}
     |   "send"                                      {ES_Empty_Send}
+    |   "receive"                                   {Receive}
 
 Direccion :: {Dir}
 Direccion : "left"        {DLeft}
@@ -282,6 +283,7 @@ data InstRob = Almac Expr
             |   ES_Empty_Send
             |   Colec_empty
             |   Mov_empty Dir
+            |   Receive
         deriving (Eq, Show)
 --            |   Sec_Inst -- Falta
 
