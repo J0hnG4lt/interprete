@@ -331,7 +331,7 @@ data Comp = Comp Cond InstRob
         deriving (Eq)
 
 instance Show Comp where
-    show (Comp cond instrob) = "(Comportamiento "++(show cond)++" "++(show instrob)++")"
+    show (Comp cond instrob) = "(Comportamiento on"++(show cond)++" "++(show instrob)++")"
 
 
 data Cond = Activation 
@@ -525,7 +525,7 @@ data Token =
 -}
     -- Funcion de Error
 parseError :: [Token] -> a
-parseError tokens = error ("Error: " ++ (unwords (map show tokens)))
+parseError tokens = error ("\nPatron: Token[valor_de_token] numero_linea numero_columna\nToken inesperado a partir de \n" ++ (unwords (map show tokens)))
 
 -- (_ ( AlexPn _ _ _))
 
@@ -537,8 +537,8 @@ main = do
     [nombre] <- getArgs
     source <- readFile nombre
     let lista = alexScanTokens source
-    (putStrLn . show) lista
-    putStrLn "Lista de Tokens obtenida..."
+    --(putStrLn . show) lista
+    --putStrLn "Lista de Tokens obtenida..."
     let arbol_sintactico = calc lista
     (putStrLn . show) arbol_sintactico
 
