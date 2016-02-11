@@ -114,6 +114,7 @@ Condicion :: {Cond}
 Condicion : ACTIVATION      {Activation}
     |   DEACTIVATION        {Deactivation}
     |   DEFAULT             {Default}
+    |   Expresion           {Cond_Expr $1}
 
 --Activation : {Activation}
 --Deactivation : {Deactivation}
@@ -135,11 +136,11 @@ Secuenciacion : Secuenciacion Instruccion_de_Controlador        {Secuen ($2 : (g
     |   Instruccion_de_Controlador                              {Secuen [$1]}
 
 Condicional :: {IfCond}
-Condicional : IF Expresion_Bool ':' Instrucciones ELSE Instrucciones END        {IfCond_Else $2 $4 $6}
-    |   IF Expresion_Bool ':' Instrucciones END                                   {IfCond_Pass $2 $4}
+Condicional : IF Expresion ':' Instrucciones ELSE Instrucciones END        {IfCond_Else $2 $4 $6}
+    |   IF Expresion ':' Instrucciones END                                   {IfCond_Pass $2 $4}
 
 Iteracion_Indeterminada :: {While}
-Iteracion_Indeterminada : WHILE Expresion_Bool ':' Instrucciones END          {While $2 $4}
+Iteracion_Indeterminada : WHILE Expresion ':' Instrucciones END          {While $2 $4}
 
 {-
 Instruccion_de_Robot : Almacenado '.'       {InstRob $1}
@@ -194,40 +195,28 @@ Direccion : LEFT        {DLeft}
 --Down : {Down}
 
 Expresion :: {Expr}
-Expresion : Expresion_Bool                          {Expr_Bool_ $1}
-    |   Expresion_Num                               {Expr_Num_ $1}
-    |   Letra                                       {Expr_Char_ (CChar $1)}
-    |   ME                                        {Expr_Me_ Me}
-
-Expresion_Num :: {Expr_Num}
-Expresion_Num : Expresion_Num '+' Expresion_Num     {Suma $1 $3}
-    |   Expresion_Num '*' Expresion_Num             {Produ $1 $3}
-    |   Expresion_Num '/' Expresion_Num             {Divi $1 $3}
-    |   Expresion_Num '%' Expresion_Num             {Modu $1 $3}
-    |   Expresion_Num '-' Expresion_Num             {Resta $1 $3}
-    |   '-' Expresion_Num    %prec NEG              {Nega $2}
-    |   '(' Expresion_Num ')'                            {Parentesis_Num $2}
-    |   Variable                                    {Variabl_N (Var_C $1)}
-    |   Constante                                   {Numer $1}
-    |   ME                                        {Expr_Num_Me Me}
-
-Expresion_Bool :: {Expr_Bool}
-Expresion_Bool : Expresion_Bool "/\\" Expresion_Bool    {And_ $1 $3}
-    |   Expresion_Bool "\/" Expresion_Bool             {Or_ $1 $3}
-    |   '~' Expresion_Bool                              {Not_ $2}
-    |   Expresion_Bool '=' Expresion_Bool               {EquBool $1 $3}
-    |   Expresion_Bool "/=" Expresion_Bool              {NotEquBool $1 $3}
-    |   Expresion_Num "<=" Expresion_Num                {MenorEqu $1 $3}
-    |   Expresion_Num '<' Expresion_Num                 {Menor $1 $3}
-    |   Expresion_Num ">=" Expresion_Num                {MayorEqu $1 $3}
-    |   Expresion_Num '>' Expresion_Num                 {Mayor $1 $3}
-    |   Expresion_Num '=' Expresion_Num                 {EquNum $1 $3}
-    |   Expresion_Num "/=" Expresion_Num                {NotEquNum $1 $3}
-    |   '(' Expresion_Bool ')'                               {Parentesis_Bool $2}
-    |   Variable                                        {Variabl_B (Var_C $1)}
-    |   TRUE                                          {Booleano True}
-    |   FALSE                                         {Booleano False}
-    |   ME                                            {Expr_Bool_Me Me}
+Expresion :   Letra                                    {Expr_Char_ (CChar $1)}
+    |   ME                                             {Expr_Me_ Me}
+    |   Expresion '+' Expresion                        {Suma $1 $3}
+    |   Expresion '*' Expresion                        {Produ $1 $3}
+    |   Expresion '/' Expresion                        {Divi $1 $3}
+    |   Expresion '%' Expresion                        {Modu $1 $3}
+    |   Expresion '-' Expresion                        {Resta $1 $3}
+    |   '-' Expresion    %prec NEG                     {Nega $2}
+    |   '(' Expresion ')'                              {Parentesis $2}
+    |   Variable                                       {Variabl (Var_C $1)}
+    |   Constante                                      {Numer $1}
+    |   Expresion "/\\" Expresion                      {And_ $1 $3}
+    |   Expresion "\/" Expresion                       {Or_ $1 $3}
+    |   '~' Expresion                                  {Not_ $2}
+    |   Expresion '=' Expresion                        {Equ $1 $3}
+    |   Expresion "/=" Expresion                       {NotEqu $1 $3}
+    |   Expresion "<=" Expresion                       {MenorEqu $1 $3}
+    |   Expresion '<' Expresion                        {Menor $1 $3}
+    |   Expresion ">=" Expresion                       {MayorEqu $1 $3}
+    |   Expresion '>' Expresion                        {Mayor $1 $3}
+    |   TRUE                                           {Booleano True}
+    |   FALSE                                          {Booleano False}
 
 
 
@@ -255,15 +244,15 @@ instance Show Instrcs where
     show (Instrcs_Varios inst1 inst2) = "(Varias Instrucciones"++(show inst1)++" "++(show inst2)++")"
 
 
-data While = While Expr_Bool Instrcs
+data While = While Expr Instrcs
         deriving (Eq)
 
 instance Show While where
     show (While expr sec) = "(While "++(show expr)++" "++(show sec)++")" 
 
 
-data IfCond = IfCond_Else Expr_Bool Instrcs Instrcs
-        |   IfCond_Pass Expr_Bool Instrcs
+data IfCond = IfCond_Else Expr Instrcs Instrcs
+        |   IfCond_Pass Expr Instrcs
         deriving (Eq)
 
 instance Show IfCond where
@@ -337,6 +326,7 @@ instance Show Comp where
 data Cond = Activation 
         | Deactivation 
         | Default 
+        | Cond_Expr Expr
         deriving (Eq)
      --   | Expresion
 
@@ -388,14 +378,53 @@ instance Show InstContr where
     show (AdvanceInst list_ident) = "(Instruccion Avanzar "++(show list_ident)++")"
 
 
-data Expr = Expr_Bool_ Expr_Bool | Expr_Num_ Expr_Num | Expr_Char_ Expr_Char | Expr_Me_ Me
+data Expr =     Expr_Char_ Expr_Char 
+        |       Expr_Me_ Me
+        |       Equ Expr Expr
+        |       NotEqu Expr Expr
+        |       And_ Expr Expr
+        |       Or_ Expr Expr
+        |       Not_ Expr
+        |       MenorEqu Expr Expr
+        |       Menor Expr Expr
+        |       MayorEqu Expr Expr
+        |       Mayor Expr Expr
+        |       Variabl Var
+        |       Booleano Bool
+        |       Parentesis Expr
+        |       Suma Expr Expr
+        |       Resta Expr Expr
+        |       Divi Expr Expr
+        |       Produ Expr Expr
+        |       Modu Expr Expr
+        |       Nega Expr
+        |       Numer Int
         deriving (Eq)
 
 instance Show Expr where
-    show (Expr_Bool_ expr) = "(Expresion Booleana "++(show expr)++")"
-    show (Expr_Num_ expr) = "(Expresion Numerica "++(show expr)++")"
     show (Expr_Char_ expr) = "(Caracter "++(show expr)++")"
-    show (Expr_Me_ expr) = "(Me "++(show expr)++")"
+    show (Equ expr1 expr2) = "(Igual "++(show expr1)++" "++(show expr2)++")"
+    show (NotEqu expr1 expr2) = "(No Igual "++(show expr1)++" "++(show expr2)++")"
+    show (And_ expr1 expr2) = "(And "++(show expr1)++" "++(show expr2)++")"
+    show (Or_ expr1 expr2) = "(Or "++(show expr1)++" "++(show expr2)++")"
+    show (Not_ expr1) = "(Not "++(show expr1)++")"
+    show (MenorEqu expr1 expr2) = "(Menor Igual "++(show expr1)++" "++(show expr2)++")"
+    show (Menor expr1 expr2) = "(Menor "++(show expr1)++" "++(show expr2)++")"
+    show (MayorEqu expr1 expr2) = "(Mayor Igual "++(show expr1)++" "++(show expr2)++")"
+    show (Mayor expr1 expr2) = "(Mayor "++(show expr1)++" "++(show expr2)++")"
+    show (Variabl var) = "(Variable "++(show var)++")"
+    show (Booleano bool) = "(Booleano "++(show bool)++")"
+    show (Parentesis expr) = show expr
+    show (Suma expr1 expr2) = "(Suma "++(show expr1)++" "++(show expr2)++")"
+    show (Resta expr1 expr2) = "(Resta "++(show expr1)++" "++(show expr2)++")"
+    show (Divi expr1 expr2) = "(Division "++(show expr1)++" "++(show expr2)++")"
+    show (Produ expr1 expr2) = "(Producto "++(show expr1)++" "++(show expr2)++")"
+    show (Modu expr1 expr2) = "(Modulo "++(show expr1)++" "++(show expr2)++")"
+    show (Nega expr1) = "(Nega"++(show expr1)++")"
+    show (Numer num) = "(Numero "++(show num)++")"
+    show (Expr_Me_ me) = "me"
+
+
 
 data Expr_Char = CChar Char
     deriving (Eq)
@@ -406,123 +435,8 @@ instance Show Expr_Char where
 data Me = Me
     deriving (Eq, Show)
 
-data Expr_Bool = And_ Expr_Bool Expr_Bool
-        |       Or_ Expr_Bool Expr_Bool
-        |       Not_ Expr_Bool
-        |       EquBool Expr_Bool Expr_Bool
-        |       NotEquBool Expr_Bool Expr_Bool
-        |       MenorEqu Expr_Num Expr_Num
-        |       Menor Expr_Num Expr_Num
-        |       MayorEqu Expr_Num Expr_Num
-        |       Mayor Expr_Num Expr_Num
-        |       EquNum Expr_Num Expr_Num
-        |       NotEquNum Expr_Num Expr_Num
-        |       Variabl_B Var
-        |       Booleano Bool
-        |       Parentesis_Bool Expr_Bool
-        |       Expr_Bool_Me Me
-        deriving (Eq)
-
-instance Show Expr_Bool where
-    show (And_ expr1 expr2) = "(And "++(show expr1)++" "++(show expr2)++")"
-    show (Or_ expr1 expr2) = "(Or "++(show expr1)++" "++(show expr2)++")"
-    show (Not_ expr1) = "(Not "++(show expr1)++")"
-    show (EquBool expr1 expr2) = "(Equivalente "++(show expr1)++" "++(show expr2)++")"
-    show (NotEquBool expr1 expr2) = "(No Equivalente "++(show expr1)++" "++(show expr2)++")"
-    show (MenorEqu expr1 expr2) = "(Menor Igual "++(show expr1)++" "++(show expr2)++")"
-    show (Menor expr1 expr2) = "(Menor "++(show expr1)++" "++(show expr2)++")"
-    show (MayorEqu expr1 expr2) = "(Mayor Igual "++(show expr1)++" "++(show expr2)++")"
-    show (Mayor expr1 expr2) = "(Mayor "++(show expr1)++" "++(show expr2)++")"
-    show (EquNum expr1 expr2) = "(Igual "++(show expr1)++" "++(show expr2)++")"
-    show (NotEquNum expr1 expr2) = "(No Igual "++(show expr1)++" "++(show expr2)++")"
-    show (Variabl_B var) = "(Variable Bool "++(show var)++")"
-    show (Booleano bool) = "(Booleano "++(show bool)++")"
-    show (Parentesis_Bool expr) = show expr
-    show (Expr_Bool_Me me) = "me"
 
 
-data Expr_Num = Suma Expr_Num Expr_Num
-        |       Resta Expr_Num Expr_Num
-        |       Divi Expr_Num Expr_Num
-        |       Produ Expr_Num Expr_Num
-        |       Modu Expr_Num Expr_Num
-        |       Nega Expr_Num
-        |       Variabl_N Var
-        |       Numer Int
-        |       Parentesis_Num Expr_Num
-        |       Expr_Num_Me Me
-        deriving (Eq)
-
-instance Show Expr_Num where
-    show (Suma expr1 expr2) = "(Suma "++(show expr1)++" "++(show expr2)++")"
-    show (Resta expr1 expr2) = "(Resta "++(show expr1)++" "++(show expr2)++")"
-    show (Divi expr1 expr2) = "(Division "++(show expr1)++" "++(show expr2)++")"
-    show (Produ expr1 expr2) = "(Producto "++(show expr1)++" "++(show expr2)++")"
-    show (Modu expr1 expr2) = "(Modulo "++(show expr1)++" "++(show expr2)++")"
-    show (Nega expr1) = "(Nega"++(show expr1)++")"
-    show (Variabl_N var) = "(Variable "++(show var)++")"
-    show (Numer num) = "(Numero "++(show num)++")"
-    show (Parentesis_Num expr) = show expr
-    show (Expr_Num_Me me) = "me"
-
-{-
-data Token =
-        TkCreate          AlexPosn  |
-        TkExecute         AlexPosn  |
-        TkEnd             AlexPosn  |
-        TkBot             AlexPosn  |
-        TkInt             AlexPosn  |
-        TkBool            AlexPosn  |
-        TkChar            AlexPosn  |
-        TkStore           AlexPosn  |
-        TkReceive         AlexPosn  |
-        TkOn              AlexPosn  |
-        TkActivate        AlexPosn  |
-        TkAdvance         AlexPosn  |
-        TkDeactivate      AlexPosn  |
-        TkIf              AlexPosn  |
-        TkElse            AlexPosn  |
-        TkWhile           AlexPosn  |
-        TkCollect         AlexPosn  |
-        TkAs              AlexPosn  |
-        TkDrop            AlexPosn  |
-        TkUp              AlexPosn  |
-        TkDown            AlexPosn  |
-        TkLeft            AlexPosn  |
-        TkRight           AlexPosn  |
-        TkRead            AlexPosn  |
-        TkSend            AlexPosn  |
-        TkActivation      AlexPosn  |
-        TkDeactivation    AlexPosn  |
-        TkDefault         AlexPosn  |
-        TkMe              AlexPosn  |
-        TkSuma            AlexPosn  |
-        TkResta           AlexPosn  |
-        TkMult            AlexPosn  |
-        TkDiv             AlexPosn  |
-        TkMod             AlexPosn  |
-        TkConjuncion      AlexPosn  |
-        TkDisyuncion      AlexPosn  |
-        TkNegacion        AlexPosn  |
-        TkMenor           AlexPosn  |
-        TkMenorIgual      AlexPosn  |
-        TkMayor           AlexPosn  |
-        TkMayorIgual      AlexPosn  |
-        TkIgual           AlexPosn  |
-        TkDesigualdad     AlexPosn  |
-        TkIdent   AlexPosn  String  |
-        TkNum     AlexPosn     Int  |
-        TkTrue            AlexPosn  |
-        TkFalse           AlexPosn  |
-        TkCaracter AlexPosn   Char  |
-        TkComa            AlexPosn  |
-        TkPunto           AlexPosn  |
-        TkDosPuntos       AlexPosn  |
-        TkParAbre         AlexPosn  |
-        TkParCierra       AlexPosn  |
-        TkError    AlexPosn   Char  -- Se definio el token de error
-        deriving (Eq, Show)
--}
     -- Funcion de Error
 parseError :: [Token] -> a
 parseError tokens = error ("\nPatron: Token[valor_de_token] numero_linea numero_columna\nToken inesperado a partir de \n" ++ (unwords (map show tokens)))
