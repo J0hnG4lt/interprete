@@ -1,18 +1,20 @@
 {
 module Main where
-import LexBot --(alexScanTokens, AlexPosn)
+import LexBot
 import System.Environment
 import Data.String
 import Data.List
 
+
 }
 
 -- Georvic Tur
--- 12-11402
+-- Carnet: 12-11402
+-- Correo: alexanderstower@gmail.com
 
-%name calc            -- [ Token ] -> T
+%name calc
 %tokentype { Token }
-%error { parseError } -- Implementar Funcion parseError
+%error { parseError } 
 
 
 %left "/\\" "\\/"
@@ -81,8 +83,8 @@ import Data.List
 %%
 
 Secuencia :: {AST}
-Secuencia : CREATE Lista_de_Declaraciones EXECUTE Instrucciones END      {Sec_Dec $2 $4}
-    |   EXECUTE Instrucciones END                                          {Sec $2}
+Secuencia : CREATE Lista_de_Declaraciones EXECUTE ListaInstrucciones END      {Sec_Dec $2 $4}
+    |   EXECUTE ListaInstrucciones END                                          {Sec $2}
 
 
 Definicion_de_Robot :: {DefRob}
@@ -98,16 +100,13 @@ Tipo : INT      {TInt}
     | BOOL      {TBool}
     | CHAR      {TChar}
 
---Int : {Int}
---Bool : {Bool}
---Char : {Char}
 
 Lista_de_Comportamientos :: {ListComp}
 Lista_de_Comportamientos : Lista_de_Comportamientos Comportamiento      {ListComp_L ($2 : (getComp_L $1))}
     |   Comportamiento                                                  {ListComp_L [$1] }
 
 Comportamiento :: {Comp}
-Comportamiento : ON Condicion ':' Instruccion_de_Robot END          {Comp $2 $4}
+Comportamiento : ON Condicion ':' Lista_Instruccion_de_Robot END          {Comp $2 $4}
 
 Lista_de_Identificadores :: {ListIdent}
 Lista_de_Identificadores : Lista_de_Identificadores ',' Identificador_        {ListIdent_V ((Identific_ $3) : (getIdent_V $1)) }
@@ -124,9 +123,6 @@ Condicion : ACTIVATION      {Activation}
     |   DEFAULT             {Default}
     |   Expresion           {Cond_Expr $1}
 
---Activation : {Activation}
---Deactivation : {Deactivation}
---Default : {Default}
 
 Instruccion_de_Controlador :: {InstContr}
 Instruccion_de_Controlador : ACTIVATE Lista_de_Identificadores '.'       {ActivateInst $2}
@@ -134,51 +130,27 @@ Instruccion_de_Controlador : ACTIVATE Lista_de_Identificadores '.'       {Activa
     |   DEACTIVATE Lista_de_Identificadores  '.'                         {DeactivateInst $2}
 
 Instrucciones :: {Instrcs}
-Instrucciones : Instrucciones Instrucciones     {Instrcs_Varios $1 $2}
-    |       Secuenciacion                       {Instrcs_S $1}
+Instrucciones : Secuenciacion                       {Instrcs_S $1}
     |       Iteracion_Indeterminada             {Instrcs_W $1}
     |       Condicional                         {Instrcs_I $1}
     |       Secuencia                           {Instrcs_Alcance $1}
+
+
+ListaInstrucciones :: {ListInstrcs}
+ListaInstrucciones : ListaInstrucciones Instrucciones {ListInstrcs_L ($2 : (getInstrcs_L $1))}
+    |       Instrucciones                             {ListInstrcs_L [$1] }
 
 Secuenciacion :: {Secuen}
 Secuenciacion : Secuenciacion Instruccion_de_Controlador        {Secuen ($2 : (getInstContr $1))}
     |   Instruccion_de_Controlador                              {Secuen [$1]}
 
 Condicional :: {IfCond}
-Condicional : IF Expresion ':' Instrucciones ELSE Instrucciones END        {IfCond_Else $2 $4 $6}
-    |   IF Expresion ':' Instrucciones END                                   {IfCond_Pass $2 $4}
+Condicional : IF Expresion ':' ListaInstrucciones ELSE ListaInstrucciones END        {IfCond_Else $2 $4 $6}
+    |   IF Expresion ':' ListaInstrucciones END                                   {IfCond_Pass $2 $4}
 
 Iteracion_Indeterminada :: {While}
-Iteracion_Indeterminada : WHILE Expresion ':' Instrucciones END          {While $2 $4}
+Iteracion_Indeterminada : WHILE Expresion ':' ListaInstrucciones END          {While $2 $4}
 
-{-
-Instruccion_de_Robot : Almacenado '.'       {InstRob $1}
-    |   Coleccion '.'                       {InstRob $1}
-    |   Soltado '.'                         {InstRob $1}
-    |   Movimiento '.'                      {InstRob $1}
-    |   Entrada_y_Salida '.'                {InstRob $1}
---    |   Secuenciacion_Inst '.'              {InstRob $1}
--}
-
-{-
-Coleccion : COLLECT AS Identificador      {Colec $3}
-    | COLLECT                               {Colec_empty}
-
-Identificador : Identificador_                      {Var $1}
-
-Soltado : DROP Expresion                      {Solt $2}
-
-Movimiento : Direccion Expresion                {Mov $1 $2}
-    | Direccion                                 {Mov_empty $1}
-
-Almacenado : STORE Expresion                  {Almac $2}
-
-Entrada_y_Salida :: {InstRob}
-Entrada_y_Salida : READ AS Identificador_        {ES_Read $3}
-    |   READ                                      {ES_Empty_Read}
-    |   SEND                                      {ES_Empty_Send}
-
--}
 
 Instruccion_de_Robot :: {InstRob}
 Instruccion_de_Robot : STORE Expresion '.' {Almac $2}
@@ -191,7 +163,12 @@ Instruccion_de_Robot : STORE Expresion '.' {Almac $2}
     |   READ  '.'                                   {ES_Empty_Read}
     |   SEND  '.'                                   {ES_Empty_Send}
     |   RECEIVE '.'                                  {Receive}
-    |   Instruccion_de_Robot Instruccion_de_Robot    {InstRob_Varios $1 $2}
+
+
+Lista_Instruccion_de_Robot :: {ListInstRob}
+Lista_Instruccion_de_Robot : Lista_Instruccion_de_Robot Instruccion_de_Robot     {ListInstRob_L ($2 : (getInstRob_L $1))}
+    |   Instruccion_de_Robot                                                     {ListInstRob_L [$1] }
+
 
 Direccion :: {Dir}
 Direccion : LEFT        {DLeft}
@@ -199,13 +176,10 @@ Direccion : LEFT        {DLeft}
     |   UP              {DUp}
     |   DOWN            {DDown}
 
---Left : {Left}
---Up : {Up}
---Right : {Right}
---Down : {Down}
+
 
 Expresion :: {Expr}
-Expresion : --  Letra                                    {Expr_Char_ (CChar $1)}
+Expresion : 
         ME                                             {Expr_Me_ Me}
     |   Expresion '+' Expresion                        {Suma $1 $3}
     |   Expresion '*' Expresion                        {Produ $1 $3}
@@ -227,30 +201,30 @@ Expresion : --  Letra                                    {Expr_Char_ (CChar $1)}
     |   Expresion '>' Expresion                        {Mayor $1 $3}
     |   TRUE                                           {Booleano True}
     |   FALSE                                          {Booleano False}
---    |   Expr_String                                    {Strng $1}
 
-
---Expr_String :: {Expresion_String}
---Expr_String : Expr_String Expr_String                  {Varias_Expr_String $1 $2} 
---    |   Letra                                          {Exp_String $1}
 
 
 
 {
 
-data AST = Sec Instrcs
-        | Sec_Dec ListDecl Instrcs
+data AST = Sec ListInstrcs
+        | Sec_Dec ListDecl ListInstrcs
         deriving (Eq)
 
 instance Show AST where
-    show (Sec instrcs) = "(Instrucciones "++(show instrcs)++")"
+    show (Sec instrcs) = "(Lista_Instrucciones "++(show instrcs)++")"
     show (Sec_Dec listdecl instrcs) = "(Declaraciones_e_Instrucciones "++(show listdecl)++" "++(show instrcs)++")"
 
+
+data ListInstrcs = ListInstrcs_L {getInstrcs_L :: [Instrcs]}
+    deriving (Eq)
+
+instance Show ListInstrcs where
+    show (ListInstrcs_L ins) = "(Lista_Instrucciones "++(show ins)++")"
 
 data Instrcs = Instrcs_S Secuen
         | Instrcs_W While
         | Instrcs_I IfCond
-        | Instrcs_Varios Instrcs Instrcs
         | Instrcs_Alcance AST
         deriving (Eq)
 
@@ -258,19 +232,18 @@ instance Show Instrcs where
     show (Instrcs_S sec) = "(Instruccion_Secuencia "++(show sec)++")"
     show (Instrcs_W whil) = "(Instruccion_While "++(show whil)++")"
     show (Instrcs_I ifcon) = "(Instruccion_If "++(show ifcon)++")"
-    show (Instrcs_Varios inst1 inst2) = "(Varias_Instrucciones "++(show inst1)++" "++(show inst2)++")"
     show (Instrcs_Alcance sec) = "(Alcance "++(show sec)++")"
 
 
-data While = While Expr Instrcs
+data While = While Expr ListInstrcs
         deriving (Eq)
 
 instance Show While where
     show (While expr sec) = "(While "++(show expr)++" "++(show sec)++")" 
 
 
-data IfCond = IfCond_Else Expr Instrcs Instrcs
-        |   IfCond_Pass Expr Instrcs
+data IfCond = IfCond_Else Expr ListInstrcs ListInstrcs
+        |   IfCond_Pass Expr ListInstrcs
         deriving (Eq)
 
 instance Show IfCond where
@@ -342,7 +315,7 @@ instance Show ListComp where
     show (ListComp_L comps) = "(Lista_de_Comportamientos "++(show comps)++")"     ------
 
 
-data Comp = Comp Cond InstRob
+data Comp = Comp Cond ListInstRob
         deriving (Eq)
 
 instance Show Comp where
@@ -354,7 +327,7 @@ data Cond = Activation
         | Default 
         | Cond_Expr Expr
         deriving (Eq)
-     --   | Expresion
+
 
 instance Show Cond where
     show Activation = "(Activacion)"
@@ -373,9 +346,8 @@ data InstRob = Almac Expr
             |   Colec_empty
             |   Mov_empty Dir
             |   Receive
-            |   InstRob_Varios InstRob InstRob
         deriving (Eq)
---            |   Sec_Inst -- Falta
+
 
 instance Show InstRob where
     show (Almac expr) = "(Almacenar "++(show expr)++")"
@@ -387,8 +359,13 @@ instance Show InstRob where
     show ES_Empty_Send = "(Enviar)"
     show (Mov_empty dir) = "(Mover_a_la "++(show dir)++")"
     show Receive = "(Recibir)"
-    show (InstRob_Varios inst1 inst2) = "(Instrucciones_de_Robot "++(show inst1)++" "++(show inst2)++")"
 
+
+data ListInstRob = ListInstRob_L {getInstRob_L :: [InstRob]}
+    deriving (Eq)
+
+instance Show ListInstRob where
+    show (ListInstRob_L lista_inst_rob) = "(Lista_de_Instrucciones_Robot "++(show lista_inst_rob)++")"
 
 data Var = Var_C [Char]
         deriving (Eq)
@@ -407,7 +384,7 @@ instance Show InstContr where
     show (AdvanceInst list_ident) = "(Instruccion_Avanzar "++(show list_ident)++")"
 
 
-data Expr = --    Expr_Char_ Expr_Char 
+data Expr = 
                Expr_Me_ Me
         |       Equ Expr Expr
         |       NotEqu Expr Expr
@@ -428,11 +405,9 @@ data Expr = --    Expr_Char_ Expr_Char
         |       Modu Expr Expr
         |       Nega Expr
         |       Numer Int
---        |       Strng Expresion_String
         deriving (Eq)
 
 instance Show Expr where
-    --show (Expr_Char_ expr) = "(Caracter "++(show expr)++")"
     show (Equ expr1 expr2) = "(Igual "++(show expr1)++" "++(show expr2)++")"
     show (NotEqu expr1 expr2) = "(No_Igual "++(show expr1)++" "++(show expr2)++")"
     show (And_ expr1 expr2) = "(And "++(show expr1)++" "++(show expr2)++")"
@@ -451,24 +426,9 @@ instance Show Expr where
     show (Produ expr1 expr2) = "(Producto "++(show expr1)++" "++(show expr2)++")"
     show (Modu expr1 expr2) = "(Modulo "++(show expr1)++" "++(show expr2)++")"
     show (Nega expr1) = "(Nega "++(show expr1)++")"
-    show (Numer num) = "(Numero "++(show num)++")"
+    show (Numer num) = "(Numero ("++(show num)++"))"
     show (Expr_Me_ me) = "(me)"
---    show (Strng exp) = "(String "++(show exp)++")"
 
-
---data Expresion_String = Varias_Expr_String Exp_String Expr_String
---    |   Exp_String Char
-
---instance Show Expresion_String where
---    show (Varias_Expr_String exp1 exp2) = "(Exp Caracteres "++(show exp1)++" "++(show exp2)++")"
---    show (Exp_String ch) = "(Exp Caracter "++(show ch)++")"
-
-
---data Expr_Char = CChar Char
---    deriving (Eq)
-
---instance Show Expr_Char where
---    show (CChar ch) = [ch]
 
 data Me = Me
     deriving (Eq, Show)
@@ -479,10 +439,105 @@ data Me = Me
 parseError :: [Token] -> a
 parseError tokens = error ("\nPatron: Token[valor_de_token] numero_linea numero_columna\nToken inesperado a partir de \n" ++ (unwords (map show tokens)))
 
--- (_ ( AlexPn _ _ _))
 
---main = getContents >>= print . calc . alexScanTokens
+type I_S = ([Int], String)
 
+-- Asume que se quitan los parentesis exteriores de (parte1 (parte2) ... (parten))
+-- Devuelve lista de indices donde hay espacios en el nivel de una misma regla
+-- Estos indices permiten separar los componentes de una produccion
+separar_componentes_i :: [Char] -> Int -> Int -> [Int]
+separar_componentes_i arbol num_parentesis num_index = 
+    case arbol of
+        ('(':xs) -> separar_componentes_i xs (num_parentesis+1) (num_index +1)
+        (')':xs) -> separar_componentes_i xs (num_parentesis-1) (num_index +1)
+        (' ':xs) -> if num_parentesis == 0 
+                        then num_index:(separar_componentes_i xs num_parentesis (num_index+1)) 
+                        else separar_componentes_i xs num_parentesis (num_index+1)
+        (_:xs) -> separar_componentes_i xs num_parentesis (num_index+1)
+        [] -> []
+
+
+resta :: Int -> Int -> Int
+resta a b = b - a
+
+-- Con los indices obtenidos puedo separar el primer componente
+-- El resto se puede mantener como estado para volver a ser usado
+pasar_de_estado :: I_S -> ( [String] , I_S )
+pasar_de_estado (indices, arbol) = let (valor,resto) = head [(splitAt i arbol) | i <- indices ]
+                                   in if not $ null indices 
+                                        then ([valor], ((map (resta (length valor)) (tail indices)),resto))
+                                      else
+                                             ([valor], ([], resto))
+
+
+obtener_valor :: ([String], I_S) -> [String]
+obtener_valor (componentes, estado) = componentes
+
+
+-- Pasa de un estado a otro extrayendo siempre los componentes en una lista
+recur :: ([String], I_S) -> ([String], I_S)
+recur (componentes, estado) =
+    case estado of
+        ([],resto) -> (componentes++[resto], estado)
+        (_, _) -> let (val, est) = pasar_de_estado estado
+                  in  recur (componentes++val, est)
+
+
+
+separar_componentes :: [Char] -> [[Char]]
+separar_componentes arbol = let indices = separar_componentes_i arbol 0 0
+                            in  obtener_valor $ recur ([], (indices, arbol))
+
+
+
+reemplazar :: Char -> Char -> Char -> Char
+reemplazar ch1 ch2 ch3
+   | ch1 == ch3 = ch2
+   | otherwise = ch3
+
+-- Permite identar
+imprimir_espacios :: Int -> IO ()
+imprimir_espacios num = putStr $ replicate num ' '
+
+
+--Recibe el arbol sintactico tal como lo imprime su show
+--En cada caso se quiere separar los componentes de alto nivel del arbol
+-- Estos corresponden a una produccion y deben estar identados igual
+-- Los subcomponentes deben identarse más
+imprimir_arbol_parentisado :: Int -> String -> IO ()
+imprimir_arbol_parentisado nivel arbol =
+    do let inicial = head arbol
+       case inicial of
+            '(' -> do let sin_parentesis = (init . tail) arbol
+                      let componentes = separar_componentes sin_parentesis
+                      imprimir_espacios nivel
+                      mapM_ (imprimir_arbol_parentisado (nivel+1)) componentes
+            '[' -> do let sin_corchetes = (init . tail) arbol
+                      let miembros = separar_miembros sin_corchetes
+                      mapM_ (imprimir_arbol_parentisado (nivel+1)) miembros
+            ' ' -> do let sin_espacio_inicial = tail arbol
+                      imprimir_arbol_parentisado nivel sin_espacio_inicial
+            ',' -> do let sin_coma_inicial = tail arbol
+                      imprimir_arbol_parentisado nivel sin_coma_inicial
+            _   -> do imprimir_espacios nivel
+                      putStrLn arbol
+
+-- Asume que se quitaron los corchetes exteriores
+separar_miembros :: [Char] -> [[Char]]
+separar_miembros arbol = let indices = separar_miembros_i arbol 0 0
+                         in  obtener_valor $ recur ([], (indices, arbol))
+
+-- Separa los miembros de un string que represente a una lista
+separar_miembros_i :: [Char] -> Int -> Int -> [Int]
+separar_miembros_i arbol num_corchetes num_index = 
+    case arbol of
+        ('[':xs) -> separar_miembros_i xs (num_corchetes+1) (num_index +1)
+        (']':xs) -> separar_miembros_i xs (num_corchetes-1) (num_index +1)
+        (',':xs) -> if num_corchetes == 0 
+                        then num_index:(separar_miembros_i xs num_corchetes (num_index+1)) 
+                        else separar_miembros_i xs num_corchetes (num_index+1)
+        (_:xs) -> separar_miembros_i xs num_corchetes (num_index+1)
+        [] -> []
 
 
 main :: IO ()
@@ -491,7 +546,10 @@ main = do
     source <- readFile nombre
     let lista = alexScanTokens source
     let arbol_sintactico = calc lista
-    putStrLn $ show arbol_sintactico
+    let arbol = show arbol_sintactico
+    --putStrLn arbol
+    --putStrLn "------------------------------------------"
+    imprimir_arbol_parentisado 0 arbol
 
 }
 
