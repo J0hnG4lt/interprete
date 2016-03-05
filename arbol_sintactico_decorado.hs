@@ -6,243 +6,12 @@ import Data.List
 import System.Environment
 import LexBot
 
----------------------------------------------------------
----------------------------------------------------------
-{-
-data AST = Sec ListInstrcs
-        | Sec_Dec ListDecl ListInstrcs
-        deriving (Eq)
-
-instance Show AST where
-    show (Sec instrcs) = "(Lista_Instrucciones "++(show instrcs)++")"
-    show (Sec_Dec listdecl instrcs) = "(Declaraciones_e_Instrucciones "++(show listdecl)++" "++(show instrcs)++")"
-
-
-data ListInstrcs = ListInstrcs_L {getInstrcs_L :: [Instrcs]}
-    deriving (Eq)
-
-instance Show ListInstrcs where
-    show (ListInstrcs_L ins) = "(Lista_Instrucciones "++(show ins)++")"
-
-data Instrcs = Instrcs_S Secuen
-        | Instrcs_W While
-        | Instrcs_I IfCond
-        | Instrcs_Alcance AST
-        deriving (Eq)
-
-instance Show Instrcs where
-    show (Instrcs_S sec) = "(Instruccion_Secuencia "++(show sec)++")"
-    show (Instrcs_W whil) = "(Instruccion_While "++(show whil)++")"
-    show (Instrcs_I ifcon) = "(Instruccion_If "++(show ifcon)++")"
-    show (Instrcs_Alcance sec) = "(Alcance "++(show sec)++")"
-
-
-data While = While Expr ListInstrcs
-        deriving (Eq)
-
-instance Show While where
-    show (While expr sec) = "(While "++(show expr)++" "++(show sec)++")" 
-
-
-data IfCond = IfCond_Else Expr ListInstrcs ListInstrcs
-        |   IfCond_Pass Expr ListInstrcs
-        deriving (Eq)
-
-instance Show IfCond where
-    show (IfCond_Else expr sec1 sec2) = "(If "++(show expr)++" "++(show sec1)++" "++(show sec2)++")"
-    show (IfCond_Pass expr sec1) = "(If "++(show expr)++" "++(show sec1)++")"
-
-
-
-data Dir = DLeft | DRight | DUp | DDown
-        deriving (Eq)
-
-instance Show Dir where
-    show DLeft = "(Izquierda)"
-    show DRight = "(Derecha)"
-    show DUp = "(Arriba)"
-    show DDown = "(Abajo)"
-
-data Secuen = Secuen { getInstContr :: [InstContr]}
-        deriving (Eq)
-
-instance Show Secuen where
-    show (Secuen instrcontrs) = "(Secuencia "++(show instrcontrs)++")"
-
-
-data ListDecl = ListDecl_L { getDecl_L :: [DefRob]}
-        deriving (Eq)
-
-instance Show ListDecl where
-    show (ListDecl_L defrobs) = "(Lista_de_Declaraciones "++(show defrobs)++")"
-
-
-data DefRob = DefRob_Full Tipo ListIdent ListComp
-        |   DefRob_Empty Tipo ListIdent
-        deriving (Eq)
-
-instance Show DefRob where
-    show (DefRob_Full tipo listident listcomp) = "(Definicion_Robot "++(show tipo)++" "++(show listident)++" "++(show listcomp)++")"
-    show (DefRob_Empty tip lista) = "(Definicion_Robot "++(show tip)++" "++(show lista)++")"
-
-
-data Tipo = TInt | TBool | TChar
-        deriving (Eq)
-
-instance Show Tipo where
-    show TInt = "(Tipo_Int)"
-    show TBool = "(Tipo_Bool)"
-    show TChar = "(Tipo_Char)"
-
-
-data ListIdent = ListIdent_V { getIdent_V :: [Identific]}
-        deriving (Eq)
-
-instance Show ListIdent where
-    show (ListIdent_V vars) = "(Lista_Identificadores "++(show vars)++")"
-
-data Identific = Identific_ Var
-    deriving (Eq)
-
-instance Show Identific where
-    show (Identific_ iden) = "(Identificador "++(show iden)++")" 
-
-data Char_Expr = Char_Expr_ Char
-    deriving(Eq, Show)
-
-data ListComp = ListComp_L {getComp_L :: [Comp]}
-        deriving (Eq)
-
-instance Show ListComp where
-    show (ListComp_L comps) = "(Lista_de_Comportamientos "++(show comps)++")"     ------
-
-
-data Comp = Comp Cond ListInstRob
-        deriving (Eq)
-
-instance Show Comp where
-    show (Comp cond instrob) = "(Comportamiento_on "++(show cond)++" "++(show instrob)++")"
-
-
-data Cond = Activation 
-        | Deactivation 
-        | Default 
-        | Cond_Expr Expr
-        deriving (Eq)
-
-
-instance Show Cond where
-    show Activation = "(Activacion)"
-    show Deactivation = "(Desactivacion)"
-    show Default = "(Default)"
-    show (Cond_Expr expr) = "(Expresion "++(show expr)++")"
-
-
-data InstRob = Almac Expr
-            |   Colec Expr
-            |   Solt Expr
-            |   Mov Dir Expr
-            |   ES_Read Identific
-            |   ES_Empty_Read
-            |   ES_Empty_Send
-            |   Colec_empty
-            |   Mov_empty Dir
-            |   Receive
-        deriving (Eq)
-
-
-instance Show InstRob where
-    show (Almac expr) = "(Almacenar "++(show expr)++")"
-    show (Colec expr) = "(Colectar "++(show expr)++")"
-    show (Solt expr) = "(Soltar "++(show expr)++")"
-    show (Mov dir expr) = "(Mover_a_la "++(show dir)++" "++(show expr)++")"
-    show (ES_Read var) = "(Leer "++(show var)++")"
-    show ES_Empty_Read = "(Leer)"
-    show ES_Empty_Send = "(Enviar)"
-    show (Mov_empty dir) = "(Mover_a_la "++(show dir)++")"
-    show Receive = "(Recibir)"
-
-
-data ListInstRob = ListInstRob_L {getInstRob_L :: [InstRob]}
-    deriving (Eq)
-
-instance Show ListInstRob where
-    show (ListInstRob_L lista_inst_rob) = "(Lista_de_Instrucciones_Robot "++(show lista_inst_rob)++")"
-
-data Var = Var_C [Char]
-        deriving (Eq)
-
-instance Show Var where
-    show (Var_C str) = "("++str++")"
-
-data InstContr = ActivateInst ListIdent
-        |   DeactivateInst ListIdent
-        |   AdvanceInst ListIdent
-        deriving (Eq)
-
-instance Show InstContr where 
-    show (ActivateInst list_ident) = "(Instruccion_Activar "++(show list_ident)++")"
-    show (DeactivateInst list_ident) = "(Instruccion_Desactivar "++(show list_ident)++")"
-    show (AdvanceInst list_ident) = "(Instruccion_Avanzar "++(show list_ident)++")"
-
-
-data Expr = 
-               Expr_Me_ Me
-        |       Equ Expr Expr
-        |       NotEqu Expr Expr
-        |       And_ Expr Expr
-        |       Or_ Expr Expr
-        |       Not_ Expr
-        |       MenorEqu Expr Expr
-        |       Menor Expr Expr
-        |       MayorEqu Expr Expr
-        |       Mayor Expr Expr
-        |       Variabl Var
-        |       Booleano Bool
-        |       Parentesis Expr
-        |       Suma Expr Expr
-        |       Resta Expr Expr
-        |       Divi Expr Expr
-        |       Produ Expr Expr
-        |       Modu Expr Expr
-        |       Nega Expr
-        |       Numer Int
-        deriving (Eq)
-
-instance Show Expr where
-    show (Equ expr1 expr2) = "(Igual "++(show expr1)++" "++(show expr2)++")"
-    show (NotEqu expr1 expr2) = "(No_Igual "++(show expr1)++" "++(show expr2)++")"
-    show (And_ expr1 expr2) = "(And "++(show expr1)++" "++(show expr2)++")"
-    show (Or_ expr1 expr2) = "(Or "++(show expr1)++" "++(show expr2)++")"
-    show (Not_ expr1) = "(Not "++(show expr1)++")"
-    show (MenorEqu expr1 expr2) = "(Menor_Igual "++(show expr1)++" "++(show expr2)++")"
-    show (Menor expr1 expr2) = "(Menor "++(show expr1)++" "++(show expr2)++")"
-    show (MayorEqu expr1 expr2) = "(Mayor_Igual "++(show expr1)++" "++(show expr2)++")"
-    show (Mayor expr1 expr2) = "(Mayor "++(show expr1)++" "++(show expr2)++")"
-    show (Variabl var) = "(Identificador_ "++(show var)++")"
-    show (Booleano bool) = "(Booleano "++(show bool)++")"
-    show (Parentesis expr) = show expr
-    show (Suma expr1 expr2) = "(Suma "++(show expr1)++" "++(show expr2)++")"
-    show (Resta expr1 expr2) = "(Resta "++(show expr1)++" "++(show expr2)++")"
-    show (Divi expr1 expr2) = "(Division "++(show expr1)++" "++(show expr2)++")"
-    show (Produ expr1 expr2) = "(Producto "++(show expr1)++" "++(show expr2)++")"
-    show (Modu expr1 expr2) = "(Modulo "++(show expr1)++" "++(show expr2)++")"
-    show (Nega expr1) = "(Nega "++(show expr1)++")"
-    show (Numer num) = "(Numero ("++(show num)++"))"
-    show (Expr_Me_ me) = "(me)"
-
-
-data Me = Me
-    deriving (Eq, Show)
--}
----------------------------------------------------------
----------------------------------------------------------
-
 
 
 data TabSimbElemInfo = Palabra (Maybe [Comp])
                     | Booleanoo (Maybe [Comp])
                     | Numero (Maybe [Comp])
+                 deriving (Eq)
 
 instance Show TabSimbElemInfo where
     show (Palabra algo) = show algo
@@ -289,15 +58,22 @@ quitar_elemento (errores, tabla:pila) nombre = (errores, (quitar_elem_ tabla nom
 quitar_elem_ :: TabSimb -> String -> TabSimb
 quitar_elem_ todo@((nombre1, info):tabla) nombre2 = if nombre1 == nombre2
                                                 then tabla
-                                                else quitar_elem_ tabla nombre2
+                                                else ((nombre1, info):(quitar_elem_ tabla nombre2))
 quitar_elem_ [] nombre = []
 
 type TabSimbElem = (String, TabSimbElemInfo) -- Cambiar por DefRob
 
+
+
 type TabSimb = [TabSimbElem]
 
+
+
 encontrar_en_tabla_simb :: String -> TabSimb -> Maybe TabSimbElemInfo
-encontrar_en_tabla_simb = lookup
+encontrar_en_tabla_simb nombre ((identi, info):tabla) = if nombre == identi
+                                                        then Just info
+                                                        else encontrar_en_tabla_simb nombre tabla
+encontrar_en_tabla_simb nombre [] = Nothing 
 
 type PilaTabSimb = [TabSimb]
 
@@ -337,7 +113,18 @@ insertar_en_primera_tab_simb (errores,(x:xs)) elem =  (errores,((insertar_elemen
 
 colapsar_lista :: [LEPTS_AST] -> LEPTS_AST
 colapsar_lista lista = foldr op ([],[]) lista
-    where op (lista_e_1,lista_p_1) (lista_e_2,lista_p_2) = ((lista_e_1 ++ lista_e_2), (lista_p_1 ++ lista_p_2)) -- Se debe igrnorar tabla?
+    where op (lista_e_1,lista_p_1) (lista_e_2,lista_p_2) = ((lista_e_1 ++ lista_e_2), (lista_p_1)) -- Se debe igrnorar tabla?
+
+colapsar_lista_LD :: [LEPTS_AST] -> LEPTS_AST
+colapsar_lista_LD lista = foldr op ([],[]) lista
+    where op (lista_e_1,lista_p_1) (lista_e_2,lista_p_2) = ((lista_e_1 ++ lista_e_2), (combinar_primeras_tablas lista_p_1 lista_p_2))
+
+combinar_primeras_tablas :: PilaTabSimb -> PilaTabSimb -> PilaTabSimb
+combinar_primeras_tablas (tabla1:pila1) (tabla2:pila2) = ((tabla1++tabla2):pila1)
+combinar_primeras_tablas pila [] = pila
+combinar_primeras_tablas [] pila = pila
+
+
 
 {-
 combinar_primeras_tablas :: LEPTS_AST -> LEPTS_AST -> LEPTS_AST
@@ -358,15 +145,18 @@ revisar_LI :: ListInstrcs -> LEPTS_AST -> LEPTS_AST
 revisar_LI (ListInstrcs_L lista_instr) lepts = colapsar_lista (map ((flip revisar_I) lepts) lista_instr)
 
 revisar_LD :: ListDecl -> LEPTS_AST -> LEPTS_AST
-revisar_LD (ListDecl_L defrobs) lepts = revisar_redeclaracion (colapsar_lista (map ((flip revisar_DR) lepts) defrobs))
+revisar_LD (ListDecl_L defrobs) lepts = revisar_redeclaracion (colapsar_lista_LD (map ((flip revisar_DR) lepts) defrobs))
 
 revisar_redeclaracion :: LEPTS_AST -> LEPTS_AST
 revisar_redeclaracion lepts@(errores, tabla:pila) = if hay_duplicados_2 tabla 
-                                                then insertar_error lepts "BOT redeclarado"
-                                                else lepts
-
+                                                    then insertar_error lepts "BOT redeclarado"
+                                                    else lepts
 hay_duplicados_2 :: TabSimb -> Bool
-hay_duplicados_2 tabla = foldr (||) False [(not $ null [identificador | (identificador, infor) <- tabla, identificador == nombre ]) | (nombre, inf) <- tabla ]
+hay_duplicados_2 tabla = or [ ((length (elemIndices elem tabla)) > 1) | elem <- tabla ]
+
+
+hay_duplicados__2 :: TabSimb -> Bool
+hay_duplicados__2 tabla = foldr (||) False [(not $ null [identificador | (identificador, infor) <- tabla, identificador == nombre ]) | (nombre, inf) <- tabla ]
 {-
 hay_duplicados :: TabSimb -> Bool
 hay_duplicados tabla = hay_duplicados_ (contar_duplicados tabla)
@@ -395,7 +185,7 @@ revisar_DR (DefRob_Empty tipo listIdent) lepts = let identificadores = revisar_L
 
 
 revisar_LC :: ListComp -> LEPTS_AST -> Tipo -> LEPTS_AST       --
-revisar_LC (ListComp_L listComp) lepts tipo = colapsar_lista $ map (revisar_Comp lepts tipo) listComp
+revisar_LC (ListComp_L listComp) lepts tipo = colapsar_lista_LD $ map (revisar_Comp lepts tipo) listComp
 
 revisar_Comp :: LEPTS_AST -> Tipo -> Comp -> LEPTS_AST
 revisar_Comp lepts tipo (Comp cond listinstrob) = 
@@ -403,10 +193,10 @@ revisar_Comp lepts tipo (Comp cond listinstrob) =
          Activation -> revisar_LIR lepts tipo listinstrob
          Deactivation -> revisar_LIR lepts tipo listinstrob
          Default -> revisar_LIR lepts tipo listinstrob
-         Cond_Expr expr -> colapsar_lista [revisar_Expr lepts tipo expr,revisar_LIR lepts tipo listinstrob]
+         Cond_Expr expr -> colapsar_lista_LD [revisar_Expr lepts tipo expr,revisar_LIR lepts tipo listinstrob]
 
 revisar_LIR :: LEPTS_AST -> Tipo -> ListInstRob -> LEPTS_AST
-revisar_LIR lepts tipo (ListInstRob_L lista_ins_rob) = colapsar_lista $ map (revisar_IR lepts tipo) lista_ins_rob
+revisar_LIR lepts tipo (ListInstRob_L lista_ins_rob) = colapsar_lista_LD $ map (revisar_IR lepts tipo) lista_ins_rob
 
 revisar_IR :: LEPTS_AST -> Tipo -> InstRob -> LEPTS_AST
 revisar_IR lepts tipo instrob = 
@@ -454,10 +244,10 @@ revisar_variables_declaradas lepts (ListIdent_V listident) = colapsar_lista ((ma
 
 
 revisar_variable_declarada :: LEPTS_AST -> Identific -> LEPTS_AST
-revisar_variable_declarada lepts@(errores, (tabla:pila)) (Identific_ (Var_C nombre)) =
+revisar_variable_declarada lepts@(errores, pila) (Identific_ (Var_C nombre)) =
             case (encontrar_en_alcance nombre pila) of
               Nothing -> insertar_error lepts ("No se encuentra la variable "++nombre)
-              _ -> lepts
+              Just algo -> lepts
 
 
 
