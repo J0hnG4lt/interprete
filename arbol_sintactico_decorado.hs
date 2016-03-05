@@ -13,6 +13,12 @@ data TabSimbElemInfo = Palabra (Maybe [Comp])
                     | Numero (Maybe [Comp])
                  deriving (Eq)
 
+tipos_iguales :: Tipo -> TabSimbElemInfo -> Bool
+tipos_iguales TInt (Numero algo) = True
+tipos_iguales TBool (Booleanoo algo) = True
+tipos_iguales TChar (Palabra algo) = True
+tipos_iguales _ _ = False
+
 instance Show TabSimbElemInfo where
     show (Palabra algo) = show algo
     show (Booleanoo algo) = show algo
@@ -36,6 +42,12 @@ imprimir_tipo tipo = case tipo of
                         TBool -> " Booleano "
                         TInt -> " Entero "
                         TChar -> " Caracter "
+
+imprimir_tipo_info :: TabSimbElemInfo -> String
+imprimir_tipo_info info = case info of
+                                        Numero algo -> "Entero"
+                                        Booleanoo algo -> "Booleano"
+                                        Palabra algo -> "Caracter"
 
 construir_elem :: [Comp] -> Tipo -> String -> TabSimbElem
 construir_elem lista tipo nombre 
@@ -151,20 +163,17 @@ revisar_redeclaracion :: LEPTS_AST -> LEPTS_AST
 revisar_redeclaracion lepts@(errores, tabla:pila) = if hay_duplicados_2 tabla 
                                                     then insertar_error lepts "BOT redeclarado"
                                                     else lepts
+
+
 hay_duplicados_2 :: TabSimb -> Bool
-hay_duplicados_2 tabla = or [ ((length (elemIndices elem tabla)) > 1) | elem <- tabla ]
+hay_duplicados_2 tabla = or [ ((length (elemIndices elem nombres_de_variables)) > 1) | elem <- nombres_de_variables]
+                         where (nombres_de_variables, ignorar) = unzip tabla
 
 
 hay_duplicados__2 :: TabSimb -> Bool
 hay_duplicados__2 tabla = foldr (||) False [(not $ null [identificador | (identificador, infor) <- tabla, identificador == nombre ]) | (nombre, inf) <- tabla ]
-{-
-hay_duplicados :: TabSimb -> Bool
-hay_duplicados tabla = hay_duplicados_ (contar_duplicados tabla)
 
-hay_duplicados_ :: (TabSimbElem, Int) -> Bool
-hay_duplicados_ (_, 1) = False
-hay_duplicados_ (_, _ ) = True
--}
+
 revisar_I :: Instrcs -> LEPTS_AST -> LEPTS_AST
 revisar_I (Instrcs_S secuen) lepts = revisar_Sec secuen lepts
 revisar_I (Instrcs_W whil) lepts = revisar_W whil lepts
@@ -255,65 +264,69 @@ revisar_Expr :: LEPTS_AST -> Tipo -> Expr -> LEPTS_AST
 revisar_Expr lepts@(errores, pila) tipo expr =
     case expr of
         Expr_Me_ me -> case encontrar_en_alcance "Me" pila of
-                           Nothing -> insertar_error lepts "No se ha declarado Me"
+                           Nothing -> insertar_error lepts "No se puede usar Me fuera de las declaraciones."
                            Just algo -> lepts
         Equ expr1 expr2 -> colapsar_lista [revisar_Expr lepts tipo expr1,revisar_Expr lepts tipo expr2]
         NotEqu expr1 expr2 -> case tipo of
                                 TBool -> colapsar_lista [revisar_Expr lepts tipo expr1,revisar_Expr lepts tipo expr2]
-                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         And_ expr1 expr2 -> case tipo of
                                 TBool -> colapsar_lista [revisar_Expr lepts tipo expr1,revisar_Expr lepts tipo expr2]
-                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Or_ expr1 expr2 -> case tipo of
                                 TBool -> colapsar_lista [revisar_Expr lepts tipo expr1,revisar_Expr lepts tipo expr2]
-                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Not_ expr1 -> case tipo of
                             TBool -> revisar_Expr lepts tipo expr1
-                            _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                            _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         MenorEqu expr1 expr2 -> case tipo of
                                     TBool -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                    _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                                    _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Menor expr1 expr2 -> case tipo of
                                 TBool -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         MayorEqu expr1 expr2 -> case tipo of
                                     TBool -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                    _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                                    _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Mayor expr1 expr2 -> case tipo of
                                 TBool -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Variabl (Var_C nombre) -> case encontrar_en_alcance nombre pila of
                                         Nothing -> insertar_error lepts ("No se encuentra la variable "++nombre)
-                                        _ -> lepts
+                                        Just infoo -> if (tipos_iguales tipo infoo) 
+                                                      then lepts
+                                                      else insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo)++"y Se ha recibido un "++(imprimir_tipo_info infoo))
         Booleano bool -> case tipo of
                             TBool -> lepts
-                            _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo tipo))
+                            _ -> insertar_error lepts ("Se esperaba un "++(imprimir_tipo TBool)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Parentesis expr1 -> revisar_Expr lepts tipo expr1
         Suma expr1 expr2 -> case tipo of
                                 TInt -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo TInt)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Resta expr1 expr2 -> case tipo of
                                 TInt -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo TInt)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Divi expr1 expr2 -> case tipo of
                                 TInt -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo TInt)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Produ expr1 expr2 -> case tipo of
                                 TInt -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo TInt)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Modu expr1 expr2 -> case tipo of
                                 TInt -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
-                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo TInt)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Nega expr1 -> case tipo of
                                 TInt -> revisar_Expr lepts TInt expr1
-                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo))
+                                _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo TInt)++"y Se ha recibido un "++(imprimir_tipo tipo))
         Numer algo -> case tipo of
                          TInt -> lepts
-                         _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo))
+                         _ -> insertar_error lepts ("Se esperaba un"++(imprimir_tipo TInt)++"y Se ha recibido un "++(imprimir_tipo tipo))
 
 insertar_error :: LEPTS_AST -> String -> LEPTS_AST
 insertar_error (errores, pila) error_string = (error_string:errores, pila)
 
+insertar_error_mensaje :: LEPTS_AST -> Tipo -> Tipo -> LEPTS_AST
+insertar_error_mensaje lepts tipo_esperado tipo_real = insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo_esperado)++"y Se ha recibido un "++(imprimir_tipo tipo_real))
 
 
 main :: IO ()
