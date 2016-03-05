@@ -1,5 +1,9 @@
 module Main where
-import parser_happy
+import Parser_Happy
+import LexBot
+import System.Environment
+import Data.String
+import Data.List
 
 data TipoVar = Palabra__ | Booleano__ | Numero__
 
@@ -34,12 +38,28 @@ construir_elem lista tipo nombre
 insertar_en_primera_tab_pila :: LEPTS_AST -> TabSimbElem -> LEPTS_AST
 insertar_en_primera_tab_pila (errores, (tabla:tablas)) elem = (errores, ((elem:tabla):tablas))
 
+insertar_Me :: LEPTS_AST -> Tipo -> LEPTS_AST
+insertar_Me lepts tipo =
+    case tipo of
+        TInt -> insertar_en_primera_tab_pila lepts ("Me", Numero None)
+        TBool -> insertar_en_primera_tab_pila lepts ("Me", Booleano None)
+        TChar -> insertar_en_primera_tab_pila lepts ("Me", Palabra None)
+
+quitar_elemento :: LEPTS_AST -> String -> LEPTS_AST
+quitar_elemento (errores, tabla:pila) nombre = (errores, (quitar_elem_ tabla nombre):pila)
+
+quitar_elem_ :: TabSimb -> String -> TabSimb
+quitar_elem_ todo@(nombre1, info):tabla nombre2 = if nombre1 == nombre2
+                                                then tabla
+                                                else quitar_elem_ tabla nombre2
+quitar_elem_ [] nombre = []
+
 type TabSimbElem = (String, TabSimbElemInfo) -- Cambiar por DefRob
 
 type TabSimb = [TabSimbElem]
 
 encontrar_en_tabla_simb :: String -> TabSimb -> Maybe TabSimbElemInfo
-encontrar_en_tabla = lookup
+encontrar_en_tabla_simb = lookup
 
 type PilaTabSimb = [TabSimb]
 
@@ -59,14 +79,14 @@ agregar_alcance tabla pila = tabla:pila
 
 sacar_ultimo_alcance :: PilaTabSimb -> PilaTabSimb
 sacar_ultimo_alcance = tail
-
+{-
 data Nodos = Nodo_Raiz AST | Nodo_LI ListInstrcs | Nodo_I Instrcs | Nodo_W While 
                  | Nodo_If IfCond | Nodo_Dir Dir | Nodo_Sec Secuen | Nodo_LD ListDecl 
                  | Nodo_DR DefRob | Nodo_T Tipo | Nodo_LId ListIdent | Nodo_Id Identific 
                  | Nodo_ChExp Char_Expr | Nodo_LC ListComp | Nodo_Comp Comp | Nodo_Cond Cond 
                  | Nodo_IR InstRob | Nodo_LIR ListInstRob | Nodo_V Var | Nodo_IC InstContr
                  | Nodo_Exp Expr | Nodo_Me Me
-
+-}
 type Lista_Errores = [String]
 
 type LEPTS_AST = (Lista_Errores, PilaTabSimb)
@@ -76,7 +96,16 @@ insertar_en_primera_tab_simb (errores,(x:xs)) elem =  (errores,((insertar_elemen
 
 colapsar_lista :: [LEPTS_AST] -> LEPTS_AST
 colapsar_lista lista = foldr op ([],[]) lista
+    where op (lista_e_1,lista_p_1) (lista_e_2,lista_p_2) = ((lista_e_1 ++ lista_e_2), (lista_p_1 ++ lista_p_2)) -- Se debe igrnorar tabla?
+
+{-
+combinar_primeras_tablas :: LEPTS_AST -> LEPTS_AST -> LEPTS_AST
+combinar_primeras_tablas (errores1,  tabla1:pila1) (errores2, tabla2:pila2) = (errores1++errores2, (tabla1++tabla2):)
+
+colapsar_lista_2 :: [LEPTS_AST] -> LEPTS_AST
+colapsar_lista_2 lista = foldr op ([],[]) lista
     where op (lista_e_1,lista_p_1) (lista_e_2,lista_p_2) = ((lista_e_1 ++ lista_e_2), (lista_p_1 ++ lista_p_2))
+-}
 
 revisar_arbol :: AST -> LEPTS_AST -> LEPTS_AST
 revisar_arbol (Sec lista_instrcs) lepts = revisar_LI lista_instrcs lepts
@@ -85,23 +114,35 @@ revisar_arbol (Sec_Dec lista_decl lista_instrcs) lepts = let lepts1 = revisar_LD
 
 
 revisar_LI :: ListInstrcs -> LEPTS_AST -> LEPTS_AST
-revisar_LI (ListInstrcs_L lista_instr) lepts = colapsar_lista (map revisar_I lista_instrcs)
+revisar_LI (ListInstrcs_L lista_instr) lepts = colapsar_lista (map ((flip revisar_I) lepts) lista_instrcs)
 
 revisar_LD :: ListDecl -> LEPTS_AST -> LEPTS_AST
-revisar_LD (ListDecl_L defrobs) = colapsar_lista (map revisar_DR defrobs)
+revisar_LD (ListDecl_L defrobs) lepts = revisar_redeclaracion (colapsar_lista (map ((flip revisar_DR) lepts) defrobs))
+
+revisar_redeclaracion :: LEPTS_AST -> LEPTS_AST
+revisar_redeclaracion lepts@(errores, tabla:pila) = if hay_duplicados tabla 
+                                                then insertar_error lepts "BOT redeclarado"
+                                                else lepts
+
+hay_duplicados :: TabSimb -> Bool
+hay_duplicados tabla = hay_duplicados_ (count tabla)
+
+hay_duplicados_ :: (TabSimbElem, Int) -> Bool
+hay_duplicados_ (_, 1) = False
+hay_duplicados_ (_, _ ) = True
 
 revisar_I :: Instrcs -> LEPTS_AST -> LEPTS_AST
 revisar_I (Instrcs_S secuen) lepts = revisar_Sec secuen lepts
 revisar_I (Instrcs_W whil) lepts = revisar_W whil lepts
 revisar_I (Instrcs_I ifcond) lepts = revisar_If ifcond lepts
-revisar_I (Instrcs_Alcance ast) lepts = revisar_arbol ast lepts
+revisar_I (Instrcs_Alcance ast) lepts = revisar_arbol ast (([],[]):lepts)
 
 revisar_DR :: DefRob -> LEPTS_AST -> LEPTS_AST                --
-revisar_DR (DefRob_Full tipo listIdent listComp) lepts = let identificadores = revisar_LId listIdent
-                                                             lepts1 = revisar_LC listComp lepts tipo
+revisar_DR (DefRob_Full tipo listIdent listComp) lepts = let identificadores = revisar_LId listIdent -- Chequear la Doble Declaración
+                                                             lepts1 = revisar_LC listComp (insertar_Me lepts tipo) tipo
                                                              tabla_elems = map (construir_elem listComp tipo) identificadores
                                                              lepts2 = agregar_tabla lepts1 tabla_elems
-                                                         in  lepts2
+                                                         in  quitar_elemento lepts2 "Me"
 revisar_DR (DefRob_Empty tipo listIdent) lepts = let identificadores = revisar_LId listIdent
                                                      tabla_elems = map (construir_elem [] tipo) identificadores
                                                      lepts1 = agregar_tabla lepts tabla_elems
@@ -147,11 +188,14 @@ revisar_Sec :: Secuen -> LEPTS_AST -> LEPTS_AST
 revisar_Sec (Secuen lista_controladores) lepts = colapsar_lista map (revisar_IC lepts) lista_controladores
 
 revisar_W :: While -> LEPTS_AST -> LEPTS_AST
-
+revisar_W (While expr listinstrcs) lepts = colapsar_lista [revisar_Expr expr lepts, revisar_LI listinstrcs lepts]
 
 revisar_If :: IfCond -> LEPTS_AST -> LEPTS_AST
+revisar_If (IfCond_Else expr listinstrcs1 listinstrcs2) = colapsar_lista [revisar_Expr expr lepts, revisar_LI listinstrcs1 lepts, revisar_LI listinstrcs2 lepts]
+revisar_If (IfCond_Pass expr listinstrcs1) = colapsar_lista [revisar_Expr expr lepts, revisar_LI listinstrcs1 lepts]
 
-revisar_arbol :: AST -> LEPTS_AST -> LEPTS_AST
+--revisar_arbol :: AST -> LEPTS_AST -> LEPTS_AST
+
 
 revisar_IC :: LEPTS_AST -> InstContr -> LEPTS_AST
 revisar_IC lepts instcontr = 
@@ -167,13 +211,13 @@ revisar_variables_declaradas lepts listident = colapsar_lista ((map (revisar_var
 
 revisar_variable_declarada :: LEPTS_AST -> Identific -> LEPTS_AST
 revisar_variable_declarada lepts@(errores, (tabla:pila)) (Identific_ (Var_C nombre)) =
-            case (encontrar_en_tabla_simb nombre tabla) of
+            case (encontrar_en_alcance nombre lepts) of
               None -> insertar_error lepts "No se encuentra la variable "++nombre
               _ -> lepts
 
 
 
-revisar_Expr :: LEPTS_AST -> Expr -> LEPTS_AST
+revisar_Expr :: LEPTS_AST -> Tipo -> Expr -> LEPTS_AST
 revisar_Expr lepts@(errores, pila) tipo expr =
     case expr of
         Expr_Me_ me -> case encontrar_en_alcance Me lepts of
@@ -233,7 +277,10 @@ revisar_Expr lepts@(errores, pila) tipo expr =
                          TInt -> lepts
                          _ -> insertar_error lepts "Se esperaba un"++(imprimir_tipo tipo)
 
-insertar_error :: [Error] -> String -> [Error]
+insertar_error :: LEPTS_AST -> String -> LEPTS_AST
+insertar_error (errores, pila) error_string = (error_string:errores, pila)
+
+
 
 main :: IO ()
 main = do
@@ -243,3 +290,5 @@ main = do
     let arbol_sintactico = calc lista
     let arbol = show arbol_sintactico
     imprimir_arbol_parentisado 0 arbol
+    let resultado = revisar_arbol arbol_sintactico ([],[[]])
+    putStrLn (show resultado)
