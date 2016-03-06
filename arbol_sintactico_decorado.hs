@@ -19,6 +19,52 @@ tipos_iguales TBool (Booleanoo algo) = True
 tipos_iguales TChar (Palabra algo) = True
 tipos_iguales _ _ = False
 
+
+
+revisar_comportamiento_default :: LEPTS_AST -> LEPTS_AST
+revisar_comportamiento_default lepts@(errores, (tabla:pila)) = if (and $ map comp_default_final elementos)
+                                                               then lepts
+                                                               else insertar_error lepts "El comportamiento Default debe estar al final."
+                                                               where (nombres, elementos) = unzip tabla
+
+comp_default_final :: TabSimbElemInfo -> Bool
+comp_default_final elemento =
+    case elemento of
+        Palabra comp -> default_final comp
+        Booleanoo comp -> default_final comp
+        Numero comp -> default_final comp
+
+
+default_final :: Maybe [Comp] -> Bool
+default_final Nothing = True
+default_final (Just lista) = let lista_comp = [condicion | (Comp condicion lista_instrucciones_robot) <- lista]
+                                 ultimo = head lista_comp
+                                 esta_en = elem Default lista_comp
+                             in case ultimo of
+                                  Default -> True
+                                  _ -> not esta_en
+
+
+revisar_comportamientos_duplicados :: LEPTS_AST -> LEPTS_AST
+revisar_comportamientos_duplicados lepts@(errores, (tabla:pila)) = if (or $ map hay_comportamientos_duplicados elementos)
+                                                             then insertar_error lepts "Hay comportamientos repetidos"
+                                                             else lepts
+                                                             where (nombres, elementos) = unzip tabla
+
+hay_comportamientos_duplicados :: TabSimbElemInfo -> Bool
+hay_comportamientos_duplicados elemento =
+    case elemento of
+        Palabra comp -> lista_comp_dups comp
+        Booleanoo comp -> lista_comp_dups comp
+        Numero comp -> lista_comp_dups comp
+
+
+lista_comp_dups :: Maybe [Comp] -> Bool
+lista_comp_dups Nothing = False
+lista_comp_dups (Just lista) = let condiciones = [condicion | (Comp condicion lista_instrucciones_robot) <- lista]
+                               in or [ (length (elemIndices elemento condiciones)) > 1 | elemento <- condiciones]
+
+
 instance Show TabSimbElemInfo where
     show (Palabra algo) = show algo
     show (Booleanoo algo) = show algo
@@ -105,14 +151,8 @@ agregar_alcance tabla pila = tabla:pila
 
 sacar_ultimo_alcance :: PilaTabSimb -> PilaTabSimb
 sacar_ultimo_alcance = tail
-{-
-data Nodos = Nodo_Raiz AST | Nodo_LI ListInstrcs | Nodo_I Instrcs | Nodo_W While 
-                 | Nodo_If IfCond | Nodo_Dir Dir | Nodo_Sec Secuen | Nodo_LD ListDecl 
-                 | Nodo_DR DefRob | Nodo_T Tipo | Nodo_LId ListIdent | Nodo_Id Identific 
-                 | Nodo_ChExp Char_Expr | Nodo_LC ListComp | Nodo_Comp Comp | Nodo_Cond Cond 
-                 | Nodo_IR InstRob | Nodo_LIR ListInstRob | Nodo_V Var | Nodo_IC InstContr
-                 | Nodo_Exp Expr | Nodo_Me Me
--}
+
+
 type Lista_Errores = [String]
 
 type LEPTS_AST = (Lista_Errores, PilaTabSimb)
@@ -138,14 +178,6 @@ combinar_primeras_tablas [] pila = pila
 
 
 
-{-
-combinar_primeras_tablas :: LEPTS_AST -> LEPTS_AST -> LEPTS_AST
-combinar_primeras_tablas (errores1,  tabla1:pila1) (errores2, tabla2:pila2) = (errores1++errores2, (tabla1++tabla2):)
-
-colapsar_lista_2 :: [LEPTS_AST] -> LEPTS_AST
-colapsar_lista_2 lista = foldr op ([],[]) lista
-    where op (lista_e_1,lista_p_1) (lista_e_2,lista_p_2) = ((lista_e_1 ++ lista_e_2), (lista_p_1 ++ lista_p_2))
--}
 
 revisar_arbol :: AST -> LEPTS_AST -> LEPTS_AST
 revisar_arbol (Sec lista_instrcs) lepts = revisar_LI lista_instrcs lepts
@@ -157,7 +189,7 @@ revisar_LI :: ListInstrcs -> LEPTS_AST -> LEPTS_AST
 revisar_LI (ListInstrcs_L lista_instr) lepts = colapsar_lista (map ((flip revisar_I) lepts) lista_instr)
 
 revisar_LD :: ListDecl -> LEPTS_AST -> LEPTS_AST
-revisar_LD (ListDecl_L defrobs) lepts = revisar_redeclaracion (colapsar_lista_LD (map ((flip revisar_DR) lepts) defrobs))
+revisar_LD (ListDecl_L defrobs) lepts = revisar_comportamientos_duplicados $ revisar_comportamiento_default $ revisar_redeclaracion (colapsar_lista_LD (map ((flip revisar_DR) lepts) defrobs))
 
 revisar_redeclaracion :: LEPTS_AST -> LEPTS_AST
 revisar_redeclaracion lepts@(errores, tabla:pila) = if hay_duplicados_2 tabla 
@@ -335,6 +367,6 @@ main = do
     source <- readFile nombre
     let lista = alexScanTokens source
     let arbol_sintactico = calc lista
-    putStrLn $ show arbol_sintactico
+    --putStrLn $ show arbol_sintactico
     let resultado = revisar_arbol arbol_sintactico ([],[[]])
     putStrLn (show resultado)
