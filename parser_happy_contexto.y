@@ -979,7 +979,9 @@ main = do
     imprimir_arbol_parentisado 0 arbol
     let (errores, pila) = revisar_arbol arbol_sintactico ([],[[]])
     putStrLn "\n\n"
-    putStrLn (show (head errores))
+    if null errores 
+        then putStrLn "No se encontraron errores semanticos." 
+        else putStrLn (show (last errores)) --El primer error se encuentra al final
     putStrLn " "
 
 }
