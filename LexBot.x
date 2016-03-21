@@ -1,5 +1,5 @@
 {
-module LexBot {-(alexScanTokens, Token(TkError))-} where
+module LexBot {-(alexScanTokens, Token(TkError), AlexPosn)-} where
 }
 
         --  Autor: Georvic Tur
@@ -24,7 +24,7 @@ tokens :-
     bool                        { \p s -> TkBool p }
     char                        { \p s -> TkChar p }
     store                       { \p s -> TkStore p }
-    receive                     { \p s -> TkReceive p }
+    recieve                     { \p s -> TkReceive p }
     on                          { \p s -> TkOn p }
     activate                    { \p s -> TkActivate p }
     advance                     { \p s -> TkAdvance p }
@@ -66,8 +66,8 @@ tokens :-
     \>=                         { \p s -> TkMayorIgual p }
     \/\=                        { \p s -> TkDesigualdad p }
     \=                          { \p s -> TkIgual p }
-    [1-9][0-9]*                 { \p s -> TkNum p (read s) }
-    [a-zA-Z0-9']                { \p s -> TkCaracter p (head s) }
+    0|([1-9][0-9]*)                 { \p s -> TkNum p (read s) }
+    \'[a-zA-Z0-9\ ]\'           { \p s -> TkCaracter p s }
     [a-zA-Z][a-zA-Z0-9\_]*      { \p s -> TkIdent p s }
     .                           { \p s -> TkError p (head s) }  --Cualquier otro
                                                                 -- caracter es erroneo
@@ -126,7 +126,8 @@ data Token =
         TkNum     AlexPosn     Int  |
         TkTrue            AlexPosn  |
         TkFalse           AlexPosn  |
-        TkCaracter AlexPosn   Char  |
+        TkComilla         AlexPosn  |
+        TkCaracter AlexPosn   String  |
         TkComa            AlexPosn  |
         TkPunto           AlexPosn  |
         TkDosPuntos       AlexPosn  |

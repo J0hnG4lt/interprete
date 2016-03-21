@@ -119,7 +119,7 @@ Lista_de_Identificadores : Lista_de_Identificadores ',' Identificador_        {L
 
 Identificador_ :: {Var}
 Identificador_ : Variable           {Var_C $1}
-    |   Letra                       {Var_C [$1]}
+    |   Letra                       {Var_C $1}
 
 
 Condicion :: {Cond}
@@ -159,7 +159,7 @@ Iteracion_Indeterminada : WHILE Expresion ':' ListaInstrucciones END          {W
 
 Instruccion_de_Robot :: {InstRob}
 Instruccion_de_Robot : STORE Expresion '.' {Almac $2}
-    |   COLLECT AS Expresion '.'        {Colec $3}
+    |   COLLECT AS Identificador_ '.'        {Colec (Identific_ $3)}
     |   COLLECT '.'                           {Colec_empty}
     |   DROP Expresion '.'                    {Solt $2}
     |   Direccion Expresion '.'                 {Mov $1 $2}
@@ -206,6 +206,7 @@ Expresion :
     |   Expresion '>' Expresion                        {Mayor $1 $3}
     |   TRUE                                           {Booleano True}
     |   FALSE                                          {Booleano False}
+    |   Letra                          {Char_en_Expr $1}
 
 
 
@@ -342,7 +343,7 @@ instance Show Cond where
 
 
 data InstRob = Almac Expr
-            |   Colec Expr
+            |   Colec Identific
             |   Solt Expr
             |   Mov Dir Expr
             |   ES_Read Identific
@@ -362,6 +363,7 @@ instance Show InstRob where
     show (ES_Read var) = "(Leer "++(show var)++")"
     show ES_Empty_Read = "(Leer)"
     show ES_Empty_Send = "(Enviar)"
+    show Colec_empty = "(Colectar)"
     show (Mov_empty dir) = "(Mover_a_la "++(show dir)++")"
     show Receive = "(Recibir)"
 
@@ -410,6 +412,7 @@ data Expr =
         |       Modu Expr Expr
         |       Nega Expr
         |       Numer Int
+        |       Char_en_Expr String
         deriving (Eq)
 
 instance Show Expr where
@@ -433,6 +436,7 @@ instance Show Expr where
     show (Nega expr1) = "(Nega "++(show expr1)++")"
     show (Numer num) = "(Numero ("++(show num)++"))"
     show (Expr_Me_ me) = "(me)"
+    show (Char_en_Expr ch) = "("++(show ch)++")"
 
 
 data Me = Me
@@ -725,6 +729,22 @@ insertar_Me lepts tipo =
         TBool -> insertar_en_primera_tab_pila lepts ("Me", Booleanoo Nothing)
         TChar -> insertar_en_primera_tab_pila lepts ("Me", Palabra Nothing)
 
+--Crea un alcance para collect
+
+tabla_colec :: Tipo -> TabSimb
+tabla_colec tipo = 
+    case tipo of
+        TInt -> [("Me", Numero Nothing)]
+        TBool -> [("Me", Booleanoo Nothing)]
+        TChar -> [("Me", Palabra Nothing)]
+
+tabla_colec_var :: String -> Tipo -> TabSimbElem
+tabla_colec_var nombre tipo =
+    case tipo of
+        TInt -> (nombre, Numero Nothing)
+        TBool -> (nombre, Booleanoo Nothing)
+        TChar -> (nombre, Palabra Nothing)
+
 quitar_elemento :: LEPTS_AST -> String -> LEPTS_AST
 quitar_elemento (errores, tabla:pila) nombre = (errores, (quitar_elem_ tabla nombre):pila)
 
@@ -751,6 +771,7 @@ insertar_elemento_en_tab_simb elem tab = elem:tab
 
 agregar_tabla :: LEPTS_AST -> TabSimb -> LEPTS_AST
 agregar_tabla (errores, (tabla:lista_tablas)) nueva = (errores, ((nueva++tabla):lista_tablas))
+agregar_tabla (errores, []) nueva = (errores, [nueva])
 
 --Devuelve el Just de la primera tabla que tenga la variable buscada
 encontrar_en_alcance :: String -> PilaTabSimb -> Maybe TabSimbElemInfo
@@ -760,8 +781,8 @@ encontrar_en_alcance nombre pila = msum (map (encontrar_en_tabla_simb nombre) pi
 agregar_alcance :: TabSimb -> PilaTabSimb -> PilaTabSimb
 agregar_alcance tabla pila = tabla:pila
 
-sacar_ultimo_alcance :: PilaTabSimb -> PilaTabSimb
-sacar_ultimo_alcance = tail
+sacar_ultimo_alcance :: LEPTS_AST -> LEPTS_AST
+sacar_ultimo_alcance (errores, pila) = (errores,tail pila)
 
 
 lepts_ast_vacio :: LEPTS_AST
@@ -838,21 +859,38 @@ revisar_LC (ListComp_L listComp) lepts tipo = colapsar_lista_LD $ map (revisar_C
 revisar_Comp :: LEPTS_AST -> Tipo -> Comp -> LEPTS_AST
 revisar_Comp lepts tipo (Comp cond listinstrob) = 
     case cond of
-         Activation -> revisar_LIR lepts tipo listinstrob
-         Deactivation -> revisar_LIR lepts tipo listinstrob
-         Default -> revisar_LIR lepts tipo listinstrob
-         Cond_Expr expr -> colapsar_lista_LD [revisar_Expr lepts tipo expr,revisar_LIR lepts tipo listinstrob]
+         Activation -> sacar_ultimo_alcance (revisar_LIR lepts tipo listinstrob)
+         Deactivation -> sacar_ultimo_alcance (revisar_LIR lepts tipo listinstrob)
+         Default -> sacar_ultimo_alcance (revisar_LIR lepts tipo listinstrob)
+         Cond_Expr expr -> sacar_ultimo_alcance (colapsar_lista_LD [revisar_Expr lepts tipo expr,revisar_LIR lepts tipo listinstrob])
 
 --Lista de Instrucciones de Robot
 revisar_LIR :: LEPTS_AST -> Tipo -> ListInstRob -> LEPTS_AST
-revisar_LIR lepts tipo (ListInstRob_L lista_ins_rob) = colapsar_lista_LD $ map (revisar_IR lepts tipo) lista_ins_rob
+revisar_LIR lepts tipo (ListInstRob_L lista_ins_rob) = 
+                        let lepts0 = hay_collect lepts tipo (ListInstRob_L lista_ins_rob)
+                            lepts1 = hay_read lepts0 tipo (ListInstRob_L lista_ins_rob)
+                        in agregar_tabla (colapsar_lista_LD $ map (revisar_IR lepts1 tipo) (reverse lista_ins_rob)) (tabla_colec tipo)
+
+--Si existe instruccion collect actualiza la pila
+hay_collect :: LEPTS_AST -> Tipo -> ListInstRob -> LEPTS_AST
+hay_collect lepts tipo (ListInstRob_L []) = lepts
+hay_collect lepts tipo (ListInstRob_L (x:xs)) = case x of
+                        (Colec iden) -> revisar_IR lepts tipo (Colec iden)
+                        _ -> hay_collect lepts tipo (ListInstRob_L xs)
+
+--Si existe instruccion read actualiza la pila
+hay_read :: LEPTS_AST -> Tipo -> ListInstRob -> LEPTS_AST
+hay_read lepts tipo (ListInstRob_L []) = lepts
+hay_read lepts tipo (ListInstRob_L (x:xs)) = case x of
+                        (ES_Read iden) -> revisar_IR lepts tipo (ES_Read iden)
+                        _ -> hay_read lepts tipo (ListInstRob_L xs)
 
 --Instruccion de Robot
 revisar_IR :: LEPTS_AST -> Tipo -> InstRob -> LEPTS_AST
 revisar_IR lepts tipo instrob = 
     case instrob of
         Almac expr -> revisar_Expr lepts tipo expr
-        Colec expr -> revisar_Expr lepts tipo expr
+        Colec iden ->  insertar_en_primera_tab_pila lepts (tabla_colec_var (revisar_Identific iden) tipo)
         Solt expr -> revisar_Expr lepts tipo expr
         Mov dir expr -> revisar_Expr lepts tipo expr
         ES_Read (Identific_ (Var_C identif)) -> insertar_en_primera_tab_pila lepts (construir_elem [] tipo identif)
@@ -956,6 +994,9 @@ revisar_Expr lepts@(errores, pila) tipo expr =
         Numer algo -> case tipo of
                          TInt -> lepts
                          _ -> insertar_error_mensaje lepts TInt tipo
+        Char_en_Expr ch -> case tipo of
+                         TChar -> lepts
+                         _ -> insertar_error_mensaje lepts TChar tipo
 
 
 --Actualiza el estado con un nuevo error
