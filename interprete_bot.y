@@ -871,7 +871,7 @@ revisar_Comp lepts tipo (Comp cond listinstrob) =
          Activation -> sacar_ultimo_alcance (revisar_LIR lepts tipo listinstrob)
          Deactivation -> sacar_ultimo_alcance (revisar_LIR lepts tipo listinstrob)
          Default -> sacar_ultimo_alcance (revisar_LIR lepts tipo listinstrob)
-         Cond_Expr expr -> sacar_ultimo_alcance (colapsar_lista_LD [revisar_Expr lepts tipo expr,revisar_LIR lepts tipo listinstrob])
+         Cond_Expr expr -> sacar_ultimo_alcance (colapsar_lista_LD [revisar_Expr lepts TBool expr,revisar_LIR lepts tipo listinstrob])
 
 --Lista de Instrucciones de Robot
 revisar_LIR :: LEPTS_AST -> Tipo -> ListInstRob -> LEPTS_AST
@@ -1044,6 +1044,14 @@ op_bot_bool op val1 val2 = let valor1 = bool val1
                                        char="",
                                        errorBot=""}
 
+op_bot_rel :: (Int -> Int -> Bool) -> ValorBot -> ValorBot -> ValorBot
+op_bot_rel op val1 val2 = let valor1 = int val1
+                              valor2 = int val2
+                              valorb = (op) valor1 valor2
+                           in ValorBot{bool=valorb,
+                                       int=0,
+                                       char="",
+                                       errorBot=""}
 
 esta_en_lista_d :: [EstadoBot] -> String -> Bool
 esta_en_lista_d (var:lista) nombreb = if ((nombre var) == nombreb)
@@ -1076,15 +1084,22 @@ encontrar_estado_bot [] nombreb = EstadoBot{nombre=nombreb}---------------------
 
 operar_expr_int :: (Int -> Int -> Int) ->  Expr -> Expr -> StateT Env IO (IO ValorBot)
 operar_expr_int op expr1 expr2 = do env0 <- get
-                                    let valorIO1 = (evalStateT $ eval_expr expr1) env0
-                                    let valorIO2 = (evalStateT $ eval_expr expr2) env0
-                                    return (liftM2 (op_bot_int (op)) (join valorIO1) (join valorIO2))
+                                    valorIO1 <- (eval_expr expr1)
+                                    valorIO2 <- (eval_expr expr2)
+                                    return (liftM2 (op_bot_int (op)) (valorIO1) (valorIO2))
 
 operar_expr_bool :: (Bool -> Bool -> Bool) ->  Expr -> Expr -> StateT Env IO (IO ValorBot)
 operar_expr_bool op expr1 expr2 = do env0 <- get
-                                     let valorIO1 = (evalStateT $ eval_expr expr1) env0
-                                     let valorIO2 = (evalStateT $ eval_expr expr2) env0
-                                     return (liftM2 (op_bot_bool (op)) (join valorIO1) (join valorIO2))
+                                     valorIO1 <- (eval_expr expr1)
+                                     valorIO2 <- (eval_expr expr2)
+                                     return (liftM2 (op_bot_bool (op)) (valorIO1) (valorIO2))
+
+operar_expr_rel :: (Int -> Int -> Bool) ->  Expr -> Expr -> StateT Env IO (IO ValorBot)
+operar_expr_rel op expr1 expr2 = do env0 <- get
+                                    valorIO1 <- (eval_expr expr1)
+                                    valorIO2 <- (eval_expr expr2)
+                                    return (liftM2 (op_bot_rel (op)) (valorIO1) (valorIO2))
+
 
 negar_bool :: ValorBot -> ValorBot
 negar_bool val = ValorBot{bool= not (bool val)}
@@ -1093,9 +1108,18 @@ negar_int :: ValorBot -> ValorBot
 negar_int val = ValorBot{int=  (0-(int val))}
 
 eval_expr :: Expr -> StateT Env IO (IO ValorBot)
-eval_expr (Numer algo) = do return (return ValorBot{int=algo})
-eval_expr (Booleano algo) = do return (return ValorBot{bool=algo})
-eval_expr (Char_en_Expr algo) = do return (return ValorBot{char=algo})
+eval_expr (Numer algo) = do return (return ValorBot{int=algo,
+                                                    char="",
+                                                    bool=False,
+                                                    errorBot=""})
+eval_expr (Booleano algo) = do return (return ValorBot{bool=algo,
+                                                       char="",
+                                                       int=0,
+                                                       errorBot=""})
+eval_expr (Char_en_Expr algo) = do return (return ValorBot{char=algo,
+                                                           int=0,
+                                                           bool=False,
+                                                           errorBot=""})
 eval_expr (Variabl (Var_C nombre)) = do env0 <- get
                                         let valor = encontrar_valor_bot (encontrar_en_alcance_d (variables env0) nombre) nombre
                                         return (return valor)
@@ -1103,9 +1127,9 @@ eval_expr (Expr_Me_ me) = do env0 <- get
                              let valor = encontrar_valor_bot (encontrar_en_alcance_d (variables env0) "me") "me"
                              return (return valor)
 eval_expr (Parentesis expr1) = do env0 <- get
-                                  let val = (evalStateT $ eval_expr expr1) env0
+                                  val <- (eval_expr expr1)
                                   put env0
-                                  return $ join val
+                                  return val
 eval_expr (Not_ expr1) = do env0 <- get
                             let valorIO = (evalStateT $ eval_expr expr1) env0
                             return (liftM negar_bool (join valorIO))
@@ -1119,12 +1143,12 @@ eval_expr (Divi expr1 expr2) = operar_expr_int (div) expr1 expr2
 eval_expr (Modu expr1 expr2) = operar_expr_int (mod) expr1 expr2
 eval_expr (And_ expr1 expr2) = operar_expr_bool (&&) expr1 expr2
 eval_expr (Or_ expr1 expr2) = operar_expr_bool (||) expr1 expr2
-eval_expr (Mayor expr1 expr2) = operar_expr_bool (>) expr1 expr2
-eval_expr (MayorEqu expr1 expr2) = operar_expr_bool (>=) expr1 expr2
-eval_expr (Menor expr1 expr2) = operar_expr_bool (<) expr1 expr2
-eval_expr (MenorEqu expr1 expr2) = operar_expr_bool (<=) expr1 expr2
-eval_expr (Equ expr1 expr2) = operar_expr_bool (==) expr1 expr2
-eval_expr (NotEqu expr1 expr2) = operar_expr_bool (/=) expr1 expr2
+eval_expr (Mayor expr1 expr2) = operar_expr_rel (>) expr1 expr2
+eval_expr (MayorEqu expr1 expr2) = operar_expr_rel (>=) expr1 expr2
+eval_expr (Menor expr1 expr2) = operar_expr_rel (<) expr1 expr2
+eval_expr (MenorEqu expr1 expr2) = operar_expr_rel (<=) expr1 expr2
+eval_expr (Equ expr1 expr2) = operar_expr_rel (==) expr1 expr2
+eval_expr (NotEqu expr1 expr2) = operar_expr_rel (/=) expr1 expr2
 
 
 operar_expr_int_me :: (Int -> Int -> Int) ->  Expr -> Expr -> String -> StateT Env IO (IO ValorBot)
@@ -1139,15 +1163,32 @@ operar_expr_bool_me op expr1 expr2 nombreb = do env0 <- get
                                                 let valorIO2 = (evalStateT $ eval_expr_me expr2 nombreb) env0
                                                 return (liftM2 (op_bot_bool (op)) (join valorIO1) (join valorIO2))
 
+operar_expr_rel_me :: (Int -> Int -> Bool) ->  Expr -> Expr -> String -> StateT Env IO (IO ValorBot)
+operar_expr_rel_me op expr1 expr2 nombreb = do env0 <- get
+                                               valorIO1 <- (eval_expr_me expr1 nombreb)
+                                               valorIO2 <- (eval_expr_me expr2 nombreb)
+                                               return (liftM2 (op_bot_rel (op)) (valorIO1) (valorIO2))
+
+
 eval_expr_me :: Expr -> String -> StateT Env IO (IO ValorBot)
-eval_expr_me (Numer algo) nombreb = do return (return ValorBot{int=algo})
-eval_expr_me (Booleano algo) nomreb = do return (return ValorBot{bool=algo})
-eval_expr_me (Char_en_Expr algo) nombreb = do return (return ValorBot{char=algo})
+eval_expr_me (Numer algo) nombreb = do return (return ValorBot{int=algo,
+                                                               char="",
+                                                               bool=False,
+                                                               errorBot=""})
+eval_expr_me (Booleano algo) nomreb = do return (return ValorBot{bool=algo,
+                                                                 char="",
+                                                                 int=0,
+                                                                 errorBot=""})
+eval_expr_me (Char_en_Expr algo) nombreb = do return (return ValorBot{char=algo,
+                                                                      int=0,
+                                                                      bool=False,
+                                                                      errorBot=""})
 eval_expr_me (Variabl (Var_C nombre)) nombreb = do env0 <- get
                                                    let valor = encontrar_valor_bot (encontrar_en_alcance_d (variables env0) nombre) nombre
                                                    return (return valor)
 eval_expr_me (Expr_Me_ me) nombreb = do env0 <- get
                                         let valor = encontrar_valor_bot (encontrar_en_alcance_d (variables env0) nombreb) nombreb
+                                        liftIO $ putStrLn (show (int valor))
                                         return (return valor)
 eval_expr_me (Parentesis expr1) nombreb = do env0 <- get
                                              let val = (evalStateT $ eval_expr_me expr1 nombreb) env0
@@ -1296,13 +1337,19 @@ encontrar_valor_asociado_segun_tipo nombreb lista =
         TChar -> VChar $ char (valor estado_bot)
         TBool -> VBool $ bool (valor estado_bot)
 
+--guardar_valor_bot_pila :: [[EstadoBot]] -> String -> ValorBot -> [[EstadoBot]]
+
 eval_IR :: InstRob -> String -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_IR #-}
 eval_IR (Almac expr) nombreb =
         do env0 <- get
            let valorb = (evalStateT $ eval_expr_me expr nombreb) env0
-           let estado = ((liftM (flip (guardar_valor_bot nombreb) env0) (join valorb))) 
-           put (unsafePerformIO estado)
+           liftIO $ putStrLn ("TEST eval_IR almac "++(show (int (unsafePerformIO $ join valorb))))
+           --let estado = ((liftM (flip (guardar_valor_bot nombreb) env0) (join valorb)))
+           let pila_n = guardar_valor_bot_pila (variables env0) nombreb (unsafePerformIO $ join valorb)
+           let estado = env0{variables=pila_n}
+           liftIO $ putStrLn $ show $ encontrar_valor_asociado_segun_tipo nombreb (encontrar_en_alcance_d (variables estado) nombreb)
+           put (estado)
            return (join valorb)
 eval_IR (Colec (Identific_ (Var_C nombreb))) nombre_bot_actual = 
     do env0 <- get
@@ -1467,21 +1514,21 @@ eval_Advance_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Advance_2 (x:xs) = 
     do env0 <- get
        let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env0) x) x
-       eval_Avanzar (encontrar_activar (comportamientos estado_bot)) x
+       eval_Avanzar (encontrar_avanzar (comportamientos estado_bot) env0 x) x
        eval_Activate_2 xs
 eval_Advance_2 [] = return $ return ValorBot{errorBot=""}
 
-encontrar_avanzar :: [Comp] -> Env -> ListInstRob
+encontrar_avanzar :: [Comp] -> Env -> String -> ListInstRob
 {-# NOINLINE encontrar_avanzar #-}
-encontrar_avanzar ((x:xs)) env =
+encontrar_avanzar ((x:xs)) env nombreb =
     case x of
-        ((Comp (Activation) listinstrob)) -> encontrar_avanzar ((xs)) env
-        ((Comp (Deactivation) listinstrob)) -> encontrar_avanzar ((xs)) env
-        ((Comp (Default) listinstrob)) -> encontrar_avanzar ((xs)) env
-        ((Comp (Cond_Expr expr) listinstrob)) -> if (bool (unsafePerformIO $ join $ (evalStateT $ eval_expr expr) env))
+        ((Comp (Activation) listinstrob)) -> encontrar_avanzar ((xs)) env nombreb
+        ((Comp (Deactivation) listinstrob)) -> encontrar_avanzar ((xs)) env nombreb
+        ((Comp (Default) listinstrob)) -> encontrar_avanzar ((xs)) env nombreb
+        ((Comp (Cond_Expr expr) listinstrob)) -> if (bool (unsafePerformIO $ join $ (evalStateT $ eval_expr_me expr nombreb) env))
                                                  then ListInstRob_L (reverse (getInstRob_L listinstrob))
-                                                 else encontrar_avanzar xs env
-encontrar_avanzar [] env = ListInstRob_L []
+                                                 else encontrar_avanzar xs env nombreb
+encontrar_avanzar [] env nombreb = ListInstRob_L []
 
 eval_Avanzar :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
 eval_Avanzar (ListInstRob_L (inst:lista)) nombre =
@@ -1593,8 +1640,9 @@ eval_W :: While -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_W #-}
 eval_W (While expr listinstrcs) =
     do env0 <- get
-       let valorIO1 = (evalStateT $ eval_expr expr) env0
-       if (bool (unsafePerformIO $ join valorIO1))
+       valorIO1 <- (eval_expr expr)
+       liftIO $ putStrLn ("TEST eval_W "++(show (bool $ unsafePerformIO $ ( valorIO1))))
+       if (bool (unsafePerformIO valorIO1))
        then do (eval_LI listinstrcs)
                nuevo_estado <- get
                put nuevo_estado
@@ -1607,8 +1655,10 @@ eval_If :: IfCond -> StateT Env IO (IO ValorBot)
 eval_If (IfCond_Else expr listinstrcs1 listinstrcs2) =
     do env0 <- get
        let valorIO1 = (evalStateT $ eval_expr expr) env0
+       let listinstrcs1_r = ListInstrcs_L $ reverse (getInstrcs_L listinstrcs1)
+       let listinstrcs2_r = ListInstrcs_L $ reverse (getInstrcs_L listinstrcs2)
        if (bool (unsafePerformIO $ join valorIO1))
-       then do (eval_LI listinstrcs1)
+       then do (eval_LI listinstrcs1_r)
                nuevo_estado <- get
                put nuevo_estado
                return $ return ValorBot{errorBot=""}
@@ -1616,6 +1666,17 @@ eval_If (IfCond_Else expr listinstrcs1 listinstrcs2) =
                nuevo_estado <- get
                put nuevo_estado
                return $ return ValorBot{errorBot=""}
+eval_If (IfCond_Pass expr listinstrcs1) =
+    do env0 <- get
+       let valorIO1 = (evalStateT $ eval_expr expr) env0
+       let listinstrcs1_r = ListInstrcs_L $ reverse (getInstrcs_L listinstrcs1)
+       if (bool (unsafePerformIO $ join valorIO1))
+       then do (eval_LI listinstrcs1_r)
+               nuevo_estado <- get
+               put nuevo_estado
+               return $ return ValorBot{errorBot=""}
+       else do return $ return ValorBot{errorBot=""}
+
 
 eval_Arbol :: AST -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_Arbol #-}
@@ -1627,7 +1688,8 @@ eval_Arbol (Sec_Dec lista_decl lista_instrcs) =
        (preparar_LD (lista_decl))
        nuevo_estado <- get
        put nuevo_estado
-       eval_LI lista_instrcs
+       let lista_instrcs_reverso = ListInstrcs_L (reverse (getInstrcs_L lista_instrcs))
+       eval_LI lista_instrcs_reverso
 
 preparar_LD :: ListDecl -> StateT Env IO (IO ValorBot)
 {-# NOINLINE preparar_LD #-}
@@ -1667,15 +1729,17 @@ preparar_DR (DefRob_Empty tipob (ListIdent_V ([]))) =
 
 
 eval_I :: Instrcs -> StateT Env IO (IO ValorBot)
-eval_I (Instrcs_S secuen) =
+eval_I (Instrcs_S secuen@(Secuen instrcs)) =
     do env0 <- get
-       (eval_Sec secuen)
+       let secue_reverso = reverse (getInstContr secuen)
+       (eval_Sec (Secuen (secue_reverso)))
        nuevo_estado <- get
        put nuevo_estado
        return $ return ValorBot{errorBot=""}
-eval_I (Instrcs_W whil) =
+eval_I (Instrcs_W (While expr instrcs)) =
     do env0 <- get
-       (eval_W whil)
+       let instrcs_r = ListInstrcs_L $ reverse (getInstrcs_L instrcs)
+       (eval_W (While expr instrcs_r))
        nuevo_estado <- get
        put nuevo_estado
        return $ return ValorBot{errorBot=""}
