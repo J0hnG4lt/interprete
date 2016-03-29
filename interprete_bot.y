@@ -21,7 +21,7 @@ import System.IO.Unsafe
 -- Carnet: 12-11402
 -- Correo: alexanderstower@gmail.com
 
--- NOTA: el codigo de analisis semantico se encuentra a partir de la linea 550
+-- NOTA: el codigo de la ultima fase se encuentra a partir de la linea 1040
 
 
 %name calc
@@ -1037,15 +1037,21 @@ insertar_error_mensaje :: LEPTS_AST -> Tipo -> Tipo -> LEPTS_AST
 insertar_error_mensaje lepts tipo_esperado tipo_real = insertar_error lepts ("Se esperaba un"++(imprimir_tipo tipo_esperado)++"y Se ha recibido un "++(imprimir_tipo tipo_real))
 
 
-data ValorBot = ValorBot {int :: Int, char :: String, bool :: Bool, errorBot :: String}
-type Posxy = (Int, Int)
+-------------------------------------------------------------------------------
+-----------------Interpretador-------------------------------------------------
+-------------------------------------------------------------------------------
+
+data ValorBot = ValorBot {int :: Int, char :: String, bool :: Bool, errorBot :: String} --Valor Asociado al Bot
+type Posxy = (Int, Int) --Posicion del bot en la matriz
+-- Informacion sobre un bot
 data EstadoBot = EstadoBot {nombre :: String, pos :: Posxy, valor :: ValorBot, comportamientos :: [Comp], tipo :: Tipo, activo::Bool}
 
 instance Show ValorBot where
     show val = (show $ int val) ++ (show $ bool val) ++ (show $ char val)
 
-data Env = Env {variables :: [[EstadoBot]], matriz :: [(Posxy, ValorBot)]}
+data Env = Env {variables :: [[EstadoBot]], matriz :: [(Posxy, ValorBot)]} --Estado global
 
+--Ejecutar operador para enteros
 op_bot_int :: (Int -> Int -> Int) -> ValorBot -> ValorBot -> ValorBot
 op_bot_int op val1 val2 = let valor1 = int val1
                               valor2 = int val2
@@ -1055,6 +1061,7 @@ op_bot_int op val1 val2 = let valor1 = int val1
                                       bool=False,
                                       errorBot=""}
 
+--Ejecutar operador para booleanos
 op_bot_bool :: (Bool -> Bool -> Bool) -> ValorBot -> ValorBot -> ValorBot
 op_bot_bool op val1 val2 = let valor1 = bool val1
                                valor2 = bool val2
@@ -1064,6 +1071,7 @@ op_bot_bool op val1 val2 = let valor1 = bool val1
                                        char="",
                                        errorBot=""}
 
+--Ejecutar operador para relaciones
 op_bot_rel :: (Int -> Int -> Bool) -> ValorBot -> ValorBot -> ValorBot
 op_bot_rel op val1 val2 = let valor1 = int val1
                               valor2 = int val2
@@ -1072,6 +1080,8 @@ op_bot_rel op val1 val2 = let valor1 = int val1
                                        int=0,
                                        char="",
                                        errorBot=""}
+
+-----------------Funciones Auxiliares
 
 esta_en_lista_d :: [EstadoBot] -> String -> Bool
 esta_en_lista_d (var:lista) nombreb = if ((nombre var) == nombreb)
@@ -1127,6 +1137,10 @@ negar_bool val = ValorBot{bool= not (bool val)}
 negar_int :: ValorBot -> ValorBot
 negar_int val = ValorBot{int=  (0-(int val))}
 
+-----------------Fin de funciones auxiliares
+
+
+--Evalua expresiones fuera de las declaraciones
 eval_expr :: Expr -> StateT Env IO (IO ValorBot)
 eval_expr (Numer algo) = do return (return ValorBot{int=algo,
                                                     char="",
@@ -1163,7 +1177,10 @@ eval_expr (Divi expr1 expr2) = do divisor <- eval_expr expr2
                                   if ((int $ unsafePerformIO divisor) == 0)
                                   then error "Division por cero."
                                   else operar_expr_int (div) expr1 expr2
-eval_expr (Modu expr1 expr2) = operar_expr_int (mod) expr1 expr2
+eval_expr (Modu expr1 expr2) = do divisor <- eval_expr expr2
+                                  if ((int $ unsafePerformIO divisor) == 0)
+                                  then error "Division por cero."
+                                  else operar_expr_int (mod) expr1 expr2
 eval_expr (And_ expr1 expr2) = operar_expr_bool (&&) expr1 expr2
 eval_expr (Or_ expr1 expr2) = operar_expr_bool (||) expr1 expr2
 eval_expr (Mayor expr1 expr2) = operar_expr_rel (>) expr1 expr2
@@ -1174,18 +1191,21 @@ eval_expr (Equ expr1 expr2) = operar_expr_rel (==) expr1 expr2
 eval_expr (NotEqu expr1 expr2) = operar_expr_rel (/=) expr1 expr2
 
 
+--Ejecuta operador sobre enteros
 operar_expr_int_me :: (Int -> Int -> Int) ->  Expr -> Expr -> String -> StateT Env IO (IO ValorBot)
 operar_expr_int_me op expr1 expr2 nombreb = do env0 <- get
                                                let valorIO1 = (evalStateT $ eval_expr_me expr1 nombreb) env0
                                                let valorIO2 = (evalStateT $ eval_expr_me expr2 nombreb) env0
                                                return (liftM2 (op_bot_int (op)) (join valorIO1) (join valorIO2))
 
+--Ejecuta operador sobre booleanos
 operar_expr_bool_me :: (Bool -> Bool -> Bool) ->  Expr -> Expr -> String -> StateT Env IO (IO ValorBot)
 operar_expr_bool_me op expr1 expr2 nombreb = do env0 <- get
                                                 let valorIO1 = (evalStateT $ eval_expr_me expr1 nombreb) env0
                                                 let valorIO2 = (evalStateT $ eval_expr_me expr2 nombreb) env0
                                                 return (liftM2 (op_bot_bool (op)) (join valorIO1) (join valorIO2))
 
+--Ejecuta operador de relaciones
 operar_expr_rel_me :: (Int -> Int -> Bool) ->  Expr -> Expr -> String -> StateT Env IO (IO ValorBot)
 operar_expr_rel_me op expr1 expr2 nombreb = do env0 <- get
                                                valorIO1 <- (eval_expr_me expr1 nombreb)
@@ -1193,6 +1213,7 @@ operar_expr_rel_me op expr1 expr2 nombreb = do env0 <- get
                                                return (liftM2 (op_bot_rel (op)) (valorIO1) (valorIO2))
 
 
+--Evalua expresion en declaraciones
 eval_expr_me :: Expr -> String -> StateT Env IO (IO ValorBot)
 eval_expr_me (Numer algo) nombreb = do return (return ValorBot{int=algo,
                                                                char="",
@@ -1225,8 +1246,14 @@ eval_expr_me (Nega expr1) nombreb = do env0 <- get
 eval_expr_me (Suma expr1 expr2) nombreb = operar_expr_int_me (+) expr1 expr2 nombreb
 eval_expr_me (Resta expr1 expr2) nombreb = operar_expr_int_me (-) expr1 expr2 nombreb
 eval_expr_me (Produ expr1 expr2) nombreb = operar_expr_int_me (*) expr1 expr2 nombreb
-eval_expr_me (Divi expr1 expr2) nombreb = operar_expr_int_me (div) expr1 expr2 nombreb
-eval_expr_me (Modu expr1 expr2) nombreb = operar_expr_int_me (mod) expr1 expr2 nombreb
+eval_expr_me (Divi expr1 expr2) nombreb = do divisor <- eval_expr expr2
+                                             if ((int $ unsafePerformIO divisor) == 0)
+                                             then error "Division por cero."
+                                             else operar_expr_int_me (div) expr1 expr2 nombreb
+eval_expr_me (Modu expr1 expr2) nombreb = do divisor <- eval_expr expr2
+                                             if ((int $ unsafePerformIO divisor) == 0)
+                                             then error "Division por cero."
+                                             else operar_expr_int_me (mod) expr1 expr2 nombreb
 eval_expr_me (And_ expr1 expr2) nombreb = operar_expr_bool_me (&&) expr1 expr2 nombreb
 eval_expr_me (Or_ expr1 expr2) nombreb = operar_expr_bool_me (||) expr1 expr2 nombreb
 eval_expr_me (Mayor expr1 expr2) nombreb = operar_expr_bool_me (>) expr1 expr2 nombreb
@@ -1236,6 +1263,8 @@ eval_expr_me (MenorEqu expr1 expr2) nombreb = operar_expr_bool_me (<=) expr1 exp
 eval_expr_me (Equ expr1 expr2) nombreb = operar_expr_bool_me (==) expr1 expr2 nombreb
 eval_expr_me (NotEqu expr1 expr2) nombreb = operar_expr_bool_me (/=) expr1 expr2 nombreb
 
+
+-----------------Funciones auxiliares
 
 guardar_valor_bot_ :: [EstadoBot] -> String -> ValorBot -> [EstadoBot]
 guardar_valor_bot_ (var:resto) nombreb valorb = if ((nombre var) == nombreb)
@@ -1281,12 +1310,6 @@ obtener_valor_matriz posi [] = ValorBot{int=0,
                                         bool=False,
                                         errorBot="No hay valor en matriz"}
 
-{-
-actualizar_valor_matriz :: Posxy -> [(Posxy, ValorBot)] -> [(Posxy, ValorBot)]
-actualizar_valor_matriz pos ((posi, val):xs) =
-    if pos == posi
-    then 
--}
 
 obtener_tipo_bot :: String -> Env -> Tipo
 obtener_tipo_bot nombreb env =
@@ -1381,6 +1404,9 @@ encontrar_valor_asociado_segun_tipo nombreb lista =
 
 --guardar_valor_bot_pila :: [[EstadoBot]] -> String -> ValorBot -> [[EstadoBot]]
 
+---------------------Fin de funciones auxiliares
+
+-- Ejecuta instrucciones de robot
 eval_IR :: InstRob -> String -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_IR #-}
 eval_IR (Almac expr) nombreb =
@@ -1461,10 +1487,6 @@ eval_IR (Receive) nombreb = eval_IR (ES_Empty_Read) nombreb
 
 
 
-readMaybe :: Read a => String -> Maybe a
-readMaybe s = case reads s of
-                    [(x, "")] -> Just x
-                    _         -> Nothing
 
 
 {-
@@ -1486,6 +1508,7 @@ reportar_error_tipo valorio tipo =
 -}
 --Activate
 
+--Activa los robots de la lista
 eval_Activate_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Activate_2 (x:xs) = 
     do env0 <- get
@@ -1494,16 +1517,7 @@ eval_Activate_2 (x:xs) =
        eval_Activate_2 xs
 eval_Activate_2 [] = return $ return ValorBot{errorBot=""}
 
-{-
-eval_Activate :: [String] -> Env -> Env
-{-# NOINLINE eval_Activate #-}
-eval_Activate (x:xs) env =
-    let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env) x) x
-        nuevo_env = unsafePerformIO $ (execStateT (eval_Activar (encontrar_activar (comportamientos estado_bot)) x)) env
-    in eval_Activate xs nuevo_env
-eval_Activate [] env = env
--}
-
+--Encuentra el comportamiento de activacion para un robot
 encontrar_activar :: [Comp] -> ListInstRob
 encontrar_activar ((x:xs)) =
     case x of
@@ -1513,6 +1527,7 @@ encontrar_activar ((x:xs)) =
         ((Comp (Cond_Expr expr) listinstrob)) -> encontrar_activar ((xs))
 encontrar_activar [] = ListInstRob_L []
 
+--Ejecuta las instrucciones de activacion de un robot
 eval_Activar :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
 eval_Activar (ListInstRob_L (inst:lista)) nombreb =
     do env0 <- get
@@ -1529,17 +1544,8 @@ eval_Activar (ListInstRob_L []) nombreb =
     do env0 <- get
        return $ return ValorBot{errorBot=""}
 
---Eval Deactivate
-{-
-eval_Deactivate :: [String] -> Env -> Env
-{-# NOINLINE eval_Deactivate #-}
-eval_Deactivate (x:xs) env =
-    let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env) x) x
-        nuevo_env = unsafePerformIO $ (execStateT (eval_Desactivar (encontrar_desactivar (comportamientos estado_bot)) x)) env
-    in eval_Deactivate xs nuevo_env
-eval_Deactivate [] env = env
--}
 
+--Desactiva una lista de robots
 eval_Deactivate_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Deactivate_2 (x:xs) = 
     do env0 <- get
@@ -1548,6 +1554,7 @@ eval_Deactivate_2 (x:xs) =
        eval_Deactivate_2 xs
 eval_Deactivate_2 [] = return $ return ValorBot{errorBot=""}
 
+--Encuentra las instrucciones de desactivacion de un robot
 encontrar_desactivar :: [Comp] -> ListInstRob
 encontrar_desactivar ((x:xs)) =
     case x of
@@ -1557,6 +1564,7 @@ encontrar_desactivar ((x:xs)) =
         ((Comp (Cond_Expr expr) listinstrob)) -> encontrar_desactivar ((xs))
 encontrar_desactivar [] = ListInstRob_L []
 
+--Ejecuta las instrucciones de desactivacion para un robot
 eval_Desactivar :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
 eval_Desactivar (ListInstRob_L (inst:lista)) nombreb =
     do env0 <- get
@@ -1575,19 +1583,8 @@ eval_Desactivar (ListInstRob_L []) nombre =
        return $ return ValorBot{errorBot=""}
 
 
---Eval Advance
 
-{-
-eval_Advance :: [String] -> Env -> Env
-{-# NOINLINE eval_Advance #-}
-eval_Advance (x:xs) env =
-    let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env) x) x
-        nuevo_env = unsafePerformIO $ (execStateT (eval_Avanzar (encontrar_avanzar (comportamientos estado_bot) env) x)) env
-    in eval_Advance xs nuevo_env
-eval_Advance [] env = env
--}
-
-
+--Avanza una lista de robots
 eval_Advance_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Advance_2 (x:xs) = 
     do env0 <- get
@@ -1596,6 +1593,7 @@ eval_Advance_2 (x:xs) =
        eval_Advance_2 xs
 eval_Advance_2 [] = return $ return ValorBot{errorBot=""}
 
+--Encuentra el comportamiento de avanzar que sea true o sino el default
 encontrar_avanzar :: [Comp] -> Env -> String -> ListInstRob
 {-# NOINLINE encontrar_avanzar #-}
 encontrar_avanzar ((x:xs)) env nombreb =
@@ -1608,6 +1606,7 @@ encontrar_avanzar ((x:xs)) env nombreb =
                                                  else encontrar_avanzar xs env nombreb
 encontrar_avanzar [] env nombreb = error ("Lista de comportamientos para avanzar de "++nombreb++" esta vacia.")
 
+--Ejecuta las instrucciones de avanzar para el bot
 eval_Avanzar :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
 eval_Avanzar (ListInstRob_L (inst:lista)) nombreb =
     do env0 <- get
@@ -1620,7 +1619,8 @@ eval_Avanzar (ListInstRob_L []) nombreb =
     do env0 <- get
        return $ return ValorBot{errorBot=""}
 
---Eval Default
+
+--Marca el bot como activado
 
 activar_robot :: String -> Env -> Env
 activar_robot nombreb env =
@@ -1643,6 +1643,7 @@ activar_robot__aux (est:tabla) estado =
 activar_robot__aux [] estado = []
 
 
+--Marca el robot como desactivado
 
 desactivar_robot :: String -> Env -> Env
 desactivar_robot nombreb env =
@@ -1664,7 +1665,7 @@ desactivar_robot__aux (est:tabla) estado =
     else (est:(desactivar_robot__aux tabla estado))
 desctivar_robot__aux [] estado = []
 
-
+--Evalua comportamiento default para una lista de bots
 eval_Default_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Default_2 (x:xs) = 
     do env0 <- get
@@ -1673,7 +1674,7 @@ eval_Default_2 (x:xs) =
        eval_Default_2 xs
 eval_Default_2 [] = return $ return ValorBot{errorBot=""}
 
-
+--Encuentra las instrucciones de default para un bot
 encontrar_defecto :: [Comp] -> ListInstRob
 encontrar_defecto ((x:xs)) =
     case x of
@@ -1683,6 +1684,7 @@ encontrar_defecto ((x:xs)) =
         ((Comp (Cond_Expr expr) listinstrob)) -> encontrar_defecto ((xs))
 encontrar_defecto [] = ListInstRob_L []
 
+--Ejecuta las instrucciones de default para un bot
 eval_Defecto :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
 eval_Defecto (ListInstRob_L (inst:lista)) nombre =
     do env0 <- get
@@ -1698,6 +1700,7 @@ eval_Defecto (ListInstRob_L []) nombre =
 
 --Eval IC
 
+--Activa, Avanza o desactiva una lista de bots
 eval_IC :: InstContr -> StateT Env IO (IO ValorBot)
 eval_IC (ActivateInst listident) =
     do env0 <- get
@@ -1724,16 +1727,14 @@ eval_IC (AdvanceInst listident) =
        put nuevo_estado
        return $ return ValorBot{errorBot=""}
 
+
 obtener_identificadores :: ListIdent -> [String]
 obtener_identificadores (ListIdent_V ((Identific_ (Var_C nombre)):xs)) = nombre : (obtener_identificadores (ListIdent_V xs)) 
 obtener_identificadores (ListIdent_V []) = []
 
-{-
-revisar_LI :: ListInstrcs -> LEPTS_AST -> LEPTS_AST
-revisar_LI (ListInstrcs_L lista_instr) lepts = colapsar_lista (map ((flip revisar_I) lepts) lista_instr)
--}
 
 
+--Ejecuta una lista de instrucciones
 eval_LI :: ListInstrcs -> StateT Env IO (IO ValorBot)
 eval_LI (ListInstrcs_L (x:xs)) =
     do env0 <- get
@@ -1745,7 +1746,7 @@ eval_LI (ListInstrcs_L (x:xs)) =
 eval_LI (ListInstrcs_L []) = return $ return ValorBot{errorBot=""}
 
 
-
+--Ejecuta una lista de instrucciones
 eval_Sec :: Secuen -> StateT Env IO (IO ValorBot)
 eval_Sec (Secuen (x:xs)) =
     do env0 <- get
@@ -1756,7 +1757,7 @@ eval_Sec (Secuen (x:xs)) =
        return $ return ValorBot{errorBot=""}
 eval_Sec (Secuen []) = return $ return ValorBot{errorBot=""}
 
-
+--Ejecuta un bucle
 eval_W :: While -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_W #-}
 eval_W (While expr listinstrcs) =
@@ -1770,6 +1771,7 @@ eval_W (While expr listinstrcs) =
                return $ return ValorBot{errorBot=""}
        else do return $ return ValorBot{errorBot=""}
 
+--Ejecuta un condicional
 eval_If :: IfCond -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_If #-}
 eval_If (IfCond_Else expr listinstrcs1 listinstrcs2) =
@@ -1797,7 +1799,7 @@ eval_If (IfCond_Pass expr listinstrcs1) =
                return $ return ValorBot{errorBot=""}
        else do return $ return ValorBot{errorBot=""}
 
-
+--Ejecuta el programa
 eval_Arbol :: AST -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_Arbol #-}
 eval_Arbol (Sec lista_instrcs) =
@@ -1811,6 +1813,7 @@ eval_Arbol (Sec_Dec lista_decl lista_instrcs) =
        let lista_instrcs_reverso = ListInstrcs_L (reverse (getInstrcs_L lista_instrcs))
        eval_LI lista_instrcs_reverso
 
+--Prepara el estado global antes de ejecutar instrucciones
 preparar_LD :: ListDecl -> StateT Env IO (IO ValorBot)
 {-# NOINLINE preparar_LD #-}
 preparar_LD (ListDecl_L (x:defrobs)) =
@@ -1821,6 +1824,7 @@ preparar_LD (ListDecl_L (x:defrobs)) =
        preparar_LD (ListDecl_L defrobs)
 preparar_LD (ListDecl_L []) = return $ return ValorBot{errorBot=""}
 
+--Prepara una definicion de robot
 preparar_DR :: DefRob -> StateT Env IO (IO ValorBot)
 preparar_DR (DefRob_Full tipob (ListIdent_V ((Identific_ ( (Var_C nombreb))):listIdent)) (ListComp_L listComp)) =
     do env0 <- get
@@ -1849,7 +1853,7 @@ preparar_DR (DefRob_Empty tipob (ListIdent_V ((Identific_ ( (Var_C nombreb))):li
 preparar_DR (DefRob_Empty tipob (ListIdent_V ([]))) =
                 return $ return ValorBot{errorBot=""}
 
-
+--Ejecuta un tipo de instruccion
 eval_I :: Instrcs -> StateT Env IO (IO ValorBot)
 eval_I (Instrcs_S secuen@(Secuen instrcs)) =
     do env0 <- get
@@ -1881,6 +1885,7 @@ eval_I (Instrcs_Alcance ast) =
        put nuevo_estado_sin_alcance
        return $ return ValorBot{errorBot=""}
 
+
 añadir_alcance :: Env -> Env
 añadir_alcance env = let pila = variables env
                          nueva = []:pila
@@ -1911,7 +1916,7 @@ main = do
     let arbol_sintactico = calc lista
     let arbol = show arbol_sintactico
     --putStrLn arbol
-    imprimir_arbol_parentisado 0 arbol
+    --imprimir_arbol_parentisado 0 arbol
     let (errores, pila) = revisar_arbol arbol_sintactico ([],[[]])
     putStrLn "\n\n"
     if null errores 
