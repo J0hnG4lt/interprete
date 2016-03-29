@@ -15,8 +15,6 @@ import Control.Monad.IO.Class
 import System.IO.Unsafe
 
 
-
-
 }
 
 -- Georvic Tur
@@ -876,9 +874,11 @@ revisar_Comp lepts tipo (Comp cond listinstrob) =
 --Lista de Instrucciones de Robot
 revisar_LIR :: LEPTS_AST -> Tipo -> ListInstRob -> LEPTS_AST
 revisar_LIR lepts tipo (ListInstRob_L lista_ins_rob) = 
-                        let lepts0 = hay_collect lepts tipo (ListInstRob_L lista_ins_rob)
-                            lepts1 = hay_read lepts0 tipo (ListInstRob_L lista_ins_rob)
-                        in agregar_tabla (colapsar_lista_LD $ map (revisar_IR lepts1 tipo) (reverse lista_ins_rob)) (tabla_colec tipo)
+                        let x=1
+                            lepts0 = hay_collect lepts tipo (ListInstRob_L (reverse lista_ins_rob))
+                            lepts1 = hay_read lepts0 tipo (ListInstRob_L (reverse lista_ins_rob))
+                        in --agregar_tabla (colapsar_lista_LD $ map (revisar_IR lepts1 tipo) (reverse lista_ins_rob)) (tabla_colec tipo)
+                           agregar_tabla (revisar_IR_2 lepts1 tipo (reverse lista_ins_rob)) (tabla_colec tipo)
 
 --Si existe instruccion collect actualiza la pila
 hay_collect :: LEPTS_AST -> Tipo -> ListInstRob -> LEPTS_AST
@@ -893,6 +893,26 @@ hay_read lepts tipo (ListInstRob_L []) = lepts
 hay_read lepts tipo (ListInstRob_L (x:xs)) = case x of
                         (ES_Read iden) -> revisar_IR lepts tipo (ES_Read iden)
                         _ -> hay_read lepts tipo (ListInstRob_L xs)
+
+revisar_IR_2 :: LEPTS_AST -> Tipo -> [InstRob] -> LEPTS_AST
+revisar_IR_2 lepts tipo (instrob:xs) = 
+    case instrob of
+        Almac expr -> let lepts1 = revisar_Expr lepts tipo expr
+                      in revisar_IR_2 lepts1 tipo xs
+        Colec iden -> let lepts1 = insertar_en_primera_tab_pila lepts (tabla_colec_var (revisar_Identific iden) tipo)
+                      in revisar_IR_2 lepts1 tipo xs
+        Solt expr -> let lepts1 = revisar_Expr lepts tipo expr
+                     in revisar_IR_2 lepts1 tipo xs
+        Mov dir expr -> let lepts1 = revisar_Expr lepts tipo expr
+                        in revisar_IR_2 lepts1 tipo xs
+        ES_Read (Identific_ (Var_C identif)) -> let lepts1 = insertar_en_primera_tab_pila lepts (construir_elem [] tipo identif)
+                                                in revisar_IR_2 lepts1 tipo xs
+        ES_Empty_Read -> lepts
+        ES_Empty_Send -> lepts
+        Colec_empty -> lepts
+        Mov_empty dir -> lepts
+        Receive -> lepts
+revisar_IR_2 lepts tipo [] = lepts
 
 --Instruccion de Robot
 revisar_IR :: LEPTS_AST -> Tipo -> InstRob -> LEPTS_AST
@@ -948,9 +968,9 @@ revisar_Expr lepts@(errores, pila) tipo expr =
         Expr_Me_ me -> case encontrar_en_alcance "Me" pila of
                            Nothing -> insertar_error lepts "No se puede usar Me fuera de las declaraciones."
                            Just algo -> lepts
-        Equ expr1 expr2 -> colapsar_lista [revisar_Expr lepts tipo expr1,revisar_Expr lepts tipo expr2]
+        Equ expr1 expr2 -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
         NotEqu expr1 expr2 -> case tipo of
-                                TBool -> colapsar_lista [revisar_Expr lepts tipo expr1,revisar_Expr lepts tipo expr2]
+                                TBool -> colapsar_lista [revisar_Expr lepts TInt expr1,revisar_Expr lepts TInt expr2]
                                 _ -> insertar_error_mensaje lepts TBool tipo
         And_ expr1 expr2 -> case tipo of
                                 TBool -> colapsar_lista [revisar_Expr lepts tipo expr1,revisar_Expr lepts tipo expr2]
@@ -1019,7 +1039,7 @@ insertar_error_mensaje lepts tipo_esperado tipo_real = insertar_error lepts ("Se
 
 data ValorBot = ValorBot {int :: Int, char :: String, bool :: Bool, errorBot :: String}
 type Posxy = (Int, Int)
-data EstadoBot = EstadoBot {nombre :: String, pos :: Posxy, valor :: ValorBot, comportamientos :: [Comp], tipo :: Tipo}
+data EstadoBot = EstadoBot {nombre :: String, pos :: Posxy, valor :: ValorBot, comportamientos :: [Comp], tipo :: Tipo, activo::Bool}
 
 instance Show ValorBot where
     show val = (show $ int val) ++ (show $ bool val) ++ (show $ char val)
@@ -1139,7 +1159,10 @@ eval_expr (Nega expr1) = do env0 <- get
 eval_expr (Suma expr1 expr2) = operar_expr_int (+) expr1 expr2
 eval_expr (Resta expr1 expr2) = operar_expr_int (-) expr1 expr2
 eval_expr (Produ expr1 expr2) = operar_expr_int (*) expr1 expr2
-eval_expr (Divi expr1 expr2) = operar_expr_int (div) expr1 expr2
+eval_expr (Divi expr1 expr2) = do divisor <- eval_expr expr2
+                                  if ((int $ unsafePerformIO divisor) == 0)
+                                  then error "Division por cero."
+                                  else operar_expr_int (div) expr1 expr2
 eval_expr (Modu expr1 expr2) = operar_expr_int (mod) expr1 expr2
 eval_expr (And_ expr1 expr2) = operar_expr_bool (&&) expr1 expr2
 eval_expr (Or_ expr1 expr2) = operar_expr_bool (||) expr1 expr2
@@ -1188,7 +1211,6 @@ eval_expr_me (Variabl (Var_C nombre)) nombreb = do env0 <- get
                                                    return (return valor)
 eval_expr_me (Expr_Me_ me) nombreb = do env0 <- get
                                         let valor = encontrar_valor_bot (encontrar_en_alcance_d (variables env0) nombreb) nombreb
-                                        liftIO $ putStrLn (show (int valor))
                                         return (return valor)
 eval_expr_me (Parentesis expr1) nombreb = do env0 <- get
                                              let val = (evalStateT $ eval_expr_me expr1 nombreb) env0
@@ -1254,7 +1276,10 @@ obtener_valor_matriz poss ((posi,val):resto) =
     if poss == posi
     then val
     else obtener_valor_matriz poss resto
-obtener_valor_matriz posi [] = ValorBot{errorBot="No hay valor en matriz"}
+obtener_valor_matriz posi [] = ValorBot{int=0,
+                                        char="",
+                                        bool=False,
+                                        errorBot="No hay valor en matriz"}
 
 {-
 actualizar_valor_matriz :: Posxy -> [(Posxy, ValorBot)] -> [(Posxy, ValorBot)]
@@ -1263,16 +1288,24 @@ actualizar_valor_matriz pos ((posi, val):xs) =
     then 
 -}
 
+obtener_tipo_bot :: String -> Env -> Tipo
+obtener_tipo_bot nombreb env =
+    let estado = encontrar_estado_bot (encontrar_en_alcance_d (variables env) nombreb) nombreb
+    in (tipo estado)
+
 guardar_variable_valor_matriz :: String -> String -> Env -> Env
 guardar_variable_valor_matriz nombreb nombre_bot_actual env = 
     let pila = variables env
         posi = obtener_pos_matriz nombre_bot_actual env
         matrizz = matriz env
         valor_matriz_bot_actual = obtener_valor_matriz posi matrizz
+        tipo_bot = (obtener_tipo_bot nombre_bot_actual env)
         nueva_variable = EstadoBot{nombre=nombreb,
                                    valor=valor_matriz_bot_actual, 
                                    comportamientos=[], 
-                                   pos=(0,0)}
+                                   pos=(0,0),
+                                   tipo=tipo_bot,
+                                   activo=False}
         
     in insertar_nueva_variable nueva_variable env
 
@@ -1317,9 +1350,18 @@ obtener_valor_segun_tipo :: String -> String -> [EstadoBot] -> ValorBot
 obtener_valor_segun_tipo valorio nombreb lista =
     let tipo_bot = (tipo $ encontrar_estado_bot lista nombreb)
     in case tipo_bot of
-        TInt -> ValorBot{int=(read valorio) :: Int}
-        TChar -> ValorBot{char=valorio}
-        TBool -> ValorBot{bool=(read valorio) :: Bool}
+        TInt -> ValorBot{int=(read valorio) :: Int
+                         ,char=""
+                         ,bool=False
+                         ,errorBot=""}
+        TChar -> ValorBot{char=valorio
+                          ,int=0
+                          ,bool=False
+                          ,errorBot=""}
+        TBool -> ValorBot{bool=(read valorio) :: Bool
+                          ,int=0
+                          ,char=""
+                          ,errorBot=""}
 
 data ValorA = VInt Int | VChar String | VBool Bool
 
@@ -1343,14 +1385,11 @@ eval_IR :: InstRob -> String -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_IR #-}
 eval_IR (Almac expr) nombreb =
         do env0 <- get
-           let valorb = (evalStateT $ eval_expr_me expr nombreb) env0
-           liftIO $ putStrLn ("TEST eval_IR almac "++(show (int (unsafePerformIO $ join valorb))))
-           --let estado = ((liftM (flip (guardar_valor_bot nombreb) env0) (join valorb)))
-           let pila_n = guardar_valor_bot_pila (variables env0) nombreb (unsafePerformIO $ join valorb)
+           valorb <- (eval_expr_me expr nombreb)
+           let pila_n = guardar_valor_bot_pila (variables env0) nombreb (unsafePerformIO valorb)
            let estado = env0{variables=pila_n}
-           liftIO $ putStrLn $ show $ encontrar_valor_asociado_segun_tipo nombreb (encontrar_en_alcance_d (variables estado) nombreb)
            put (estado)
-           return (join valorb)
+           return (valorb)
 eval_IR (Colec (Identific_ (Var_C nombreb))) nombre_bot_actual = 
     do env0 <- get
        let estado = guardar_variable_valor_matriz nombreb nombre_bot_actual env0
@@ -1359,10 +1398,10 @@ eval_IR (Colec (Identific_ (Var_C nombreb))) nombre_bot_actual =
 eval_IR (Solt expr) nombre_bot_actual =
     do env0 <- get
        let posi = obtener_pos_matriz nombre_bot_actual env0
-       let valorb = (evalStateT $ eval_expr_me expr nombre_bot_actual) env0
-       let estado = ((liftM ( (actualizar_valor_matriz posi) env0) (join valorb))) 
+       valorb <- (eval_expr_me expr nombre_bot_actual)
+       let estado = ((liftM ( (actualizar_valor_matriz posi) env0) (valorb))) 
        put (unsafePerformIO estado)
-       return (join valorb)
+       return (valorb)
 eval_IR (Mov dir expr) nombre_bot_actual=
     do env0 <- get
        let valorb = (evalStateT $ eval_expr_me expr nombre_bot_actual) env0
@@ -1371,19 +1410,26 @@ eval_IR (Mov dir expr) nombre_bot_actual=
        return (join valorb)
 eval_IR (ES_Read (Identific_ (Var_C identif))) nombre_bot_actual =
     do env0 <- get
-       liftIO $ putStrLn "Instroduzca un valor: "
+       liftIO $ putStr "Instroduzca un valor "
+       liftIO $ putStr ((show $ obtener_tipo_bot nombre_bot_actual env0))
+       liftIO $ putStrLn ": "
        valorIO <- liftIO $ getLine
-       --let valor_segun_tipo = obtener_valor_segun_tipo valorIO nombre_bot_actual (encontrar_en_alcance_d (variables env0) nombre_bot_actual)
+       let tipo_bot = obtener_tipo_bot nombre_bot_actual env0
+       let valor_segun_tipo = obtener_valor_segun_tipo valorIO nombre_bot_actual (encontrar_en_alcance_d (variables env0) nombre_bot_actual)
        let nueva_var = EstadoBot{nombre=identif,
-                                 valor=ValorBot{char=valorIO},
+                                 valor=valor_segun_tipo,
                                  pos=(0,0),
-                                 comportamientos=[]}
+                                 comportamientos=[],
+                                 activo=True,
+                                 tipo=tipo_bot}
        let nuevo_estado = insertar_nueva_variable nueva_var env0
        put nuevo_estado
        return $ return (ValorBot{errorBot=""})
 eval_IR (ES_Empty_Read) nombreb =
     do env0 <- get
-       liftIO $ putStrLn "Instroduzca un valor: "
+       liftIO $ putStr "Instroduzca un valor "
+       liftIO $ putStr ((show $ obtener_tipo_bot nombreb env0))
+       liftIO $ putStrLn ": "
        valorIO <- liftIO $ getLine
        let valor_b = obtener_valor_segun_tipo valorIO nombreb (encontrar_en_alcance_d (variables env0) nombreb)
        let pila_n = guardar_valor_bot_pila (variables env0) nombreb valor_b
@@ -1392,7 +1438,7 @@ eval_IR (ES_Empty_Read) nombreb =
 eval_IR (ES_Empty_Send) nombreb =
     do env0 <- get
        let valor_bot = encontrar_valor_asociado_segun_tipo nombreb (encontrar_en_alcance_d (variables env0) nombreb)
-       liftIO $ putStr "Valor: "
+       liftIO $ putStr "Send: "
        liftIO $ putStrLn (show valor_bot)
        put env0
        return $ return ValorBot{errorBot=""}
@@ -1413,14 +1459,37 @@ eval_IR (Mov_empty dir) nombre_bot_actual =
 eval_IR (Receive) nombreb = eval_IR (ES_Empty_Read) nombreb
 
 
+
+
+readMaybe :: Read a => String -> Maybe a
+readMaybe s = case reads s of
+                    [(x, "")] -> Just x
+                    _         -> Nothing
+
+
+{-
+reportar_error_tipo :: String -> Tipo -> a
+reportar_error_tipo valorio tipo =
+    case tipo of
+        TInt -> let valorM = (readMaybe valorio :: Maybe Int)
+                in case valorM of
+                        Just algo -> "Nada"
+                        Nothing -> (error "Error de tipo")::String
+        TBool -> let valorM = (readMaybe valorio :: Maybe Bool)
+                 in case valorM of
+                        Just algo -> "Nada"
+                        Nothing -> (error "Error de tipo")::String
+        TChar -> let valorM = (readMaybe valorio :: Maybe [Char])
+                 in case valorM of
+                        Just algo -> "Nada"
+                        Nothing -> (error "Error de tipo")::String
+-}
 --Activate
 
 eval_Activate_2 :: [String] -> StateT Env IO (IO ValorBot)
-eval_Activate_2 l@(x:xs) = 
+eval_Activate_2 (x:xs) = 
     do env0 <- get
-       eval_Default_2 l
-       env1 <- get
-       let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env1) x) x
+       let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env0) x) x
        eval_Activar (encontrar_activar (comportamientos estado_bot)) x
        eval_Activate_2 xs
 eval_Activate_2 [] = return $ return ValorBot{errorBot=""}
@@ -1445,14 +1514,18 @@ encontrar_activar ((x:xs)) =
 encontrar_activar [] = ListInstRob_L []
 
 eval_Activar :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
-eval_Activar (ListInstRob_L (inst:lista)) nombre =
+eval_Activar (ListInstRob_L (inst:lista)) nombreb =
     do env0 <- get
-       (eval_IR inst nombre)
-       env1 <- get
-       put env1
-       eval_Activar (ListInstRob_L lista) nombre
-       return $ return ValorBot{errorBot=""}
-eval_Activar (ListInstRob_L []) nombre =
+       let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env0) nombreb) nombreb
+       if (activo estado_bot)
+       then error ("El bot "++(nombre estado_bot)++" ya se habia activado.")
+       else do (eval_IR inst nombreb)
+               eval_Activar (ListInstRob_L lista) nombreb
+               env1 <- get
+               let env2 = activar_robot nombreb env1
+               put env2
+               return $ return ValorBot{errorBot=""}
+eval_Activar (ListInstRob_L []) nombreb =
     do env0 <- get
        return $ return ValorBot{errorBot=""}
 
@@ -1471,7 +1544,7 @@ eval_Deactivate_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Deactivate_2 (x:xs) = 
     do env0 <- get
        let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env0) x) x
-       eval_Desactivar (encontrar_activar (comportamientos estado_bot)) x
+       eval_Desactivar (encontrar_desactivar (comportamientos estado_bot)) x
        eval_Deactivate_2 xs
 eval_Deactivate_2 [] = return $ return ValorBot{errorBot=""}
 
@@ -1485,13 +1558,18 @@ encontrar_desactivar ((x:xs)) =
 encontrar_desactivar [] = ListInstRob_L []
 
 eval_Desactivar :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
-eval_Desactivar (ListInstRob_L (inst:lista)) nombre =
+eval_Desactivar (ListInstRob_L (inst:lista)) nombreb =
     do env0 <- get
-       (eval_IR inst nombre)
-       env1 <- get
-       put env1
-       eval_Desactivar (ListInstRob_L lista) nombre
-       return $ return ValorBot{errorBot=""}
+       let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env0) nombreb) nombreb
+       if (activo estado_bot)
+       then do (eval_IR inst nombreb)
+               env1 <- get
+               put env1
+               eval_Desactivar (ListInstRob_L lista) nombreb
+               let env2 = desactivar_robot nombreb env1
+               put env2
+               return $ return ValorBot{errorBot=""}
+       else error ("El bot "++(nombre estado_bot)++" ya se habia desactivado.")
 eval_Desactivar (ListInstRob_L []) nombre =
     do env0 <- get
        return $ return ValorBot{errorBot=""}
@@ -1514,8 +1592,8 @@ eval_Advance_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Advance_2 (x:xs) = 
     do env0 <- get
        let estado_bot = encontrar_estado_bot (encontrar_en_alcance_d (variables env0) x) x
-       eval_Avanzar (encontrar_avanzar (comportamientos estado_bot) env0 x) x
-       eval_Activate_2 xs
+       eval_Avanzar (encontrar_avanzar (reverse $ comportamientos estado_bot) env0 x) x
+       eval_Advance_2 xs
 eval_Advance_2 [] = return $ return ValorBot{errorBot=""}
 
 encontrar_avanzar :: [Comp] -> Env -> String -> ListInstRob
@@ -1524,25 +1602,68 @@ encontrar_avanzar ((x:xs)) env nombreb =
     case x of
         ((Comp (Activation) listinstrob)) -> encontrar_avanzar ((xs)) env nombreb
         ((Comp (Deactivation) listinstrob)) -> encontrar_avanzar ((xs)) env nombreb
-        ((Comp (Default) listinstrob)) -> encontrar_avanzar ((xs)) env nombreb
+        ((Comp (Default) listinstrob)) -> ListInstRob_L (reverse (getInstRob_L listinstrob))
         ((Comp (Cond_Expr expr) listinstrob)) -> if (bool (unsafePerformIO $ join $ (evalStateT $ eval_expr_me expr nombreb) env))
                                                  then ListInstRob_L (reverse (getInstRob_L listinstrob))
                                                  else encontrar_avanzar xs env nombreb
-encontrar_avanzar [] env nombreb = ListInstRob_L []
+encontrar_avanzar [] env nombreb = error ("Lista de comportamientos para avanzar de "++nombreb++" esta vacia.")
 
 eval_Avanzar :: ListInstRob -> String -> StateT Env IO (IO ValorBot)
-eval_Avanzar (ListInstRob_L (inst:lista)) nombre =
+eval_Avanzar (ListInstRob_L (inst:lista)) nombreb =
     do env0 <- get
-       (eval_IR inst nombre)
+       (eval_IR inst nombreb)
        env1 <- get
        put env1
-       eval_Avanzar (ListInstRob_L lista) nombre
+       eval_Avanzar (ListInstRob_L lista) nombreb
        return $ return ValorBot{errorBot=""}
-eval_Avanzar (ListInstRob_L []) nombre =
+eval_Avanzar (ListInstRob_L []) nombreb =
     do env0 <- get
        return $ return ValorBot{errorBot=""}
 
 --Eval Default
+
+activar_robot :: String -> Env -> Env
+activar_robot nombreb env =
+    let pila_n = activar_robot_ (variables env) (encontrar_estado_bot (encontrar_en_alcance_d (variables env) nombreb) nombreb)
+    in env{variables=pila_n}
+
+activar_robot_ :: [[EstadoBot]] -> EstadoBot -> [[EstadoBot]]
+activar_robot_ (tabla:pila) estado =
+    if esta_en_lista_d tabla (nombre estado)
+    then (activar_robot__aux tabla estado):pila
+    else tabla:(activar_robot_ pila estado)
+activar_robot_ [] estado = []
+
+
+activar_robot__aux :: [EstadoBot] -> EstadoBot -> [EstadoBot]
+activar_robot__aux (est:tabla) estado =
+    if ((nombre est) == (nombre estado))
+    then (est{activo=True}):tabla
+    else (est:(activar_robot__aux tabla estado))
+activar_robot__aux [] estado = []
+
+
+
+desactivar_robot :: String -> Env -> Env
+desactivar_robot nombreb env =
+    let pila_n = desactivar_robot_ (variables env) (encontrar_estado_bot (encontrar_en_alcance_d (variables env) nombreb) nombreb)
+    in env{variables=pila_n}
+
+desactivar_robot_ :: [[EstadoBot]] -> EstadoBot -> [[EstadoBot]]
+desactivar_robot_ (tabla:pila) estado =
+    if esta_en_lista_d tabla (nombre estado)
+    then (desactivar_robot__aux tabla estado):pila
+    else tabla:(desactivar_robot_ pila estado)
+desactivar_robot_ [] estado = []
+
+
+desactivar_robot__aux :: [EstadoBot] -> EstadoBot -> [EstadoBot]
+desactivar_robot__aux (est:tabla) estado =
+    if ((nombre est) == (nombre estado))
+    then (est{activo=False}):tabla
+    else (est:(desactivar_robot__aux tabla estado))
+desctivar_robot__aux [] estado = []
+
 
 eval_Default_2 :: [String] -> StateT Env IO (IO ValorBot)
 eval_Default_2 (x:xs) = 
@@ -1582,7 +1703,7 @@ eval_IC (ActivateInst listident) =
     do env0 <- get
        let identificadores = obtener_identificadores listident
        --let nuevo_estado = eval_Activate identificadores env0
-       eval_Activate_2 identificadores
+       eval_Activate_2 (reverse identificadores)
        nuevo_estado <- get
        put nuevo_estado
        return $  return ValorBot{errorBot=""}
@@ -1590,7 +1711,7 @@ eval_IC (DeactivateInst listident) =
     do env0 <- get
        let identificadores = obtener_identificadores listident
        --let nuevo_estado = eval_Deactivate identificadores env0
-       eval_Deactivate_2 identificadores
+       eval_Deactivate_2 (reverse identificadores)
        nuevo_estado <- get
        put nuevo_estado
        return $ return ValorBot{errorBot=""}
@@ -1598,7 +1719,7 @@ eval_IC (AdvanceInst listident) =
     do env0 <- get
        let identificadores = obtener_identificadores listident
        --let nuevo_estado = eval_Advance identificadores env0
-       eval_Advance_2 identificadores
+       eval_Advance_2 (reverse identificadores)
        nuevo_estado <- get
        put nuevo_estado
        return $ return ValorBot{errorBot=""}
@@ -1641,7 +1762,6 @@ eval_W :: While -> StateT Env IO (IO ValorBot)
 eval_W (While expr listinstrcs) =
     do env0 <- get
        valorIO1 <- (eval_expr expr)
-       liftIO $ putStrLn ("TEST eval_W "++(show (bool $ unsafePerformIO $ ( valorIO1))))
        if (bool (unsafePerformIO valorIO1))
        then do (eval_LI listinstrcs)
                nuevo_estado <- get
@@ -1654,10 +1774,10 @@ eval_If :: IfCond -> StateT Env IO (IO ValorBot)
 {-# NOINLINE eval_If #-}
 eval_If (IfCond_Else expr listinstrcs1 listinstrcs2) =
     do env0 <- get
-       let valorIO1 = (evalStateT $ eval_expr expr) env0
+       valorIO1 <- (eval_expr expr)
        let listinstrcs1_r = ListInstrcs_L $ reverse (getInstrcs_L listinstrcs1)
        let listinstrcs2_r = ListInstrcs_L $ reverse (getInstrcs_L listinstrcs2)
-       if (bool (unsafePerformIO $ join valorIO1))
+       if (bool (unsafePerformIO valorIO1))
        then do (eval_LI listinstrcs1_r)
                nuevo_estado <- get
                put nuevo_estado
@@ -1668,9 +1788,9 @@ eval_If (IfCond_Else expr listinstrcs1 listinstrcs2) =
                return $ return ValorBot{errorBot=""}
 eval_If (IfCond_Pass expr listinstrcs1) =
     do env0 <- get
-       let valorIO1 = (evalStateT $ eval_expr expr) env0
+       valorIO1 <- eval_expr expr
        let listinstrcs1_r = ListInstrcs_L $ reverse (getInstrcs_L listinstrcs1)
-       if (bool (unsafePerformIO $ join valorIO1))
+       if (bool (unsafePerformIO valorIO1))
        then do (eval_LI listinstrcs1_r)
                nuevo_estado <- get
                put nuevo_estado
@@ -1708,7 +1828,8 @@ preparar_DR (DefRob_Full tipob (ListIdent_V ((Identific_ ( (Var_C nombreb))):lis
                                         tipo=tipob,
                                         valor=ValorBot{bool=False,char="",int=0,errorBot=""},
                                         pos=(0,0),
-                                        comportamientos=(listComp)}
+                                        comportamientos=(listComp),
+                                        activo=False}
        let nuevo_env = insertar_nueva_variable nuevo_estado_bot env0
        put nuevo_env
        preparar_DR (DefRob_Full tipob (ListIdent_V (listIdent)) (ListComp_L listComp))
@@ -1720,7 +1841,8 @@ preparar_DR (DefRob_Empty tipob (ListIdent_V ((Identific_ ( (Var_C nombreb))):li
                                         tipo=tipob,
                                         valor=ValorBot{bool=False,char="",int=0,errorBot=""},
                                         pos=(0,0),
-                                        comportamientos=[]}
+                                        comportamientos=[],
+                                        activo=False}
        let nuevo_env = insertar_nueva_variable nuevo_estado_bot env0
        put nuevo_env
        preparar_DR (DefRob_Empty tipob (ListIdent_V (listIdent)))
